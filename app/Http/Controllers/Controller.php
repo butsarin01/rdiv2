@@ -21,19 +21,20 @@ use App\Title_document;
 use App\Banner;
 use App\Detail_menu;
 use App\year;
+use NSRU\App;
 
 
 
 class Controller extends BaseController
 {
-    use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
+    use AuthorizesRequests, ValidatesRequests;
 
     public function __construct()
     {
         $appID = '3027255233';
         $appSecret = 'E81O2FHOXKXIZINFJSXE' ;
 
-        $app = new \NSRU\App($appID,$appSecret);
+        $app = new App($appID, $appSecret);
         $this->auth = $app->createMyAuth();
         $this->dc = $app->createDataCore();
     }
