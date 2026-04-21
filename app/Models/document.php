@@ -25,7 +25,7 @@ class document extends Model
 	    "11" => "พฤศจิกายน",
 	    "12" => "ธันวาคม",
 		);
-	   	$tt =strtotime($time); 
+	   	$tt =strtotime($time);
 	    $thai_date_return1 =  date("j", $tt);
 	    $thai_date_return2 =  $thai_month_arr[date("n", $tt)];
 	    $thai_date_return3 =  (date("Y", $tt) + 543);
@@ -35,13 +35,13 @@ class document extends Model
 
 	 public function datefull(){
     	$time = Document::Where('id',$this->id)->first()->date_announcement;
-    	$tt =strtotime($time); 
+    	$tt =strtotime($time);
     	$date_return1 =  date("j", $tt);
 	    $date_return2 =  date("n", $tt);
 	    $date_return3 =  (date("Y", $tt) + 543);
 	    $date_return = $date_return2."/".$date_return1."/".$date_return3;
 	    return $date_return;
-    } 
+    }
 
 	 public function member_permisstion(){
     	$per_id = Member::Where('id',$this->member_id_create)->first()->permisstion_id;
@@ -56,7 +56,7 @@ class document extends Model
         $name = '-';
       }
       return  $name;
-    } 
+    }
 
     public function type_quality(){
       $type = Type_quality::Where('id',$this->type_quality_id)->first();
@@ -66,11 +66,25 @@ class document extends Model
         $name = '-';
       }
       return  $name;
-    } 
-    // public function category_document(){
-    // 	return Category_document::Where('id',$this->category_document_id)->first()->name;
-    // }
+    }
 
+    public function category_document(){
+        $name = 'ทั้งหมด';
+        $data = category_document::Where('id',$this->category_document_id)->first();
+        if(!empty($data)){
+            $name = $data->name;
+        }
+        return $name;
+    }
+    public function sub_document(){
+        return sub_document::Where('document_id',$this->id)->get();
+    }
+
+    public function year(){
+        $type = Type_document::Where('id',$this->type_document_id)->first();
+        $year = !empty($type->year) ? $type->year : 0;
+        return $year;
+    }
      public function file_type(){
     	$filename = Document::Where('id',$this->id)->first()->file;
     	$filetype = substr($filename, -3);
@@ -97,15 +111,15 @@ class document extends Model
 
      public function status_use(){
     	$status = Document::Where('id',$this->id)->first()->status_use;
-    	
+
           if ($status == 1) {
           	$status_name = 'ใช้งาน';
           }elseif ($status == 0) {
           	$status_name = 'ยกเลิก';
           }
     	return $status_name;
-    } 
-       
+    }
+
    public function setfile(){
         $set_type_file = array();
         $color = '';

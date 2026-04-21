@@ -115,4 +115,15 @@ class detail_menu extends Model
         $thai_date_return = $thai_date_return2."/".$thai_date_return1."/".$thai_date_return3;
         return $thai_date_return;
     }
+
+    public function placeholder_img() {
+
+        $placeholder = 'images/Placeholder-img-respon.png';
+        // dd($this->thumbnail);
+        // เช็คว่ามี thumbnail และไฟล์อยู่จริง
+        if ($this->thumbnail && Storage::disk('public')->exists('content/' . $this->thumbnail)) {
+            return asset('storage/content/' . $this->thumbnail);
+        }
+        return asset($placeholder);
+    }
 }

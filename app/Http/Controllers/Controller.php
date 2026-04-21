@@ -22,6 +22,7 @@ use App\Banner;
 use App\Detail_menu;
 use App\year;
 use NSRU\App;
+use Illuminate\Support\Facades\Cache;
 
 
 
@@ -39,7 +40,44 @@ class Controller extends BaseController
         $this->dc = $app->createDataCore();
     }
 
-    protected function showMenu($id = '')
+      protected function showMenu()
+    {
+        return Cache::remember('main-menu', 3600, function () {
+            return $this->set_session_menu();
+        });
+    }
+    protected function set_session_menu()
+    {
+        $main_menu_all = Main_menu::with([
+            'sub_menu' => function ($q) {
+                $q->orderBy('number_show', 'ASC');
+            }
+        ])
+        ->orderBy('number_show', 'ASC')
+        ->get();
+
+        $group = Borad::orderBy('number_show', 'ASC')->get();
+        $type_doc = Type_document::with('category')->get();
+        $template = Content::find(1);
+        $banner = Banner::where('place', 'right')
+            ->where('status_show', 1)
+            ->orderBy('ordinal', 'ASC')
+            ->get();
+        $visitors = $this->getVisitorsSummary();
+         $md = People::where('position_id',1)->first();
+
+        return [
+            'main_menu_all' => $main_menu_all,
+            'group' => $group,
+            'template' => $template,
+            'type_doc' => $type_doc,
+            'visitors' => $visitors,
+            'banner' => $banner,
+            'md' => $md
+        ];
+    }
+
+    protected function showMenuv1($id = '')
     {
         // dd(session()->all());
        session()->remove('main-menu');
@@ -90,14 +128,22 @@ class Controller extends BaseController
         $banner = Banner::where('place','right')->where('status_show',1)->orderBy('ordinal', 'ASC')->get();
         $md = People::where('position_id',1)->first();
 
-        session()->put('main-menu', ['main_menu_all' => $menu, 'group' => $group, 'template' => $template, 'news_cut' => $news_cut, 'type_doc' => $type_doc, 'banner' => $banner, 'md' => $md]);
+        session()->put('main-menu', [
+            'main_menu_all' => $menu,
+            'group' => $group,
+            'template' => $template,
+            'news_cut' => $news_cut,
+            'type_doc' => $type_doc,
+            'banner' => $banner,
+            'md' => $md
+            ]);
         session()->save();
     }else{
            // session()->remove('main-menu');
            // session()->remove('main-menus');
            // session()->save();
     }
-// dd(session()->all());
+
     return session()->get('main-menu');
 
 }
