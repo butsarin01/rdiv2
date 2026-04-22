@@ -20,102 +20,117 @@ use App\Models\sub_title_document;
 use App\Models\title_document;
 use App\Models\type_document;
 use App\Models\year;
-use App\Models\Tag as TagModel;
-use Illuminate\Container\Attributes\Tag;
+
 use Illuminate\Http\Request;
 
 class FrontendController extends Controller
 {
     public function index()
     {
-        $document = [];
-        $banner_top = [];
-        $md = [];
-        $event_cut = [];
-        $news_cut = [];
 
-        // $calendar = $this->dc->get_calendar_object(env('NSRU_CALENDER'));
-        // $event_cut = $calendar->events(6);
+        // -------------------------------
+        // init ค่าเริ่มต้น
+        // -------------------------------
+        $document = collect();
+        $banner_top = collect();
+        $md = null;
+        $event_cut = collect();
 
-        // $newpaper = $this->dc->get_newspaper_object(env('NSRU_NEWSPAPER'));
-        // $news_cut = $newpaper->news(5);
+        // -------------------------------
+        // calendar
+        // -------------------------------
+        // $calendar = $this->dc->get_calendar_object(12);
+        // $event_cut = $calendar ? $calendar->events(6) : collect();
 
-        $course = course::limit(9)->get();
+        // -------------------------------
+        // ผู้บริหาร
+        // -------------------------------
+        $md = people::where('position_id', 1)->first() ?? people::where('position_id', 32)->first();
 
-        $mode_article = mode_article::Where('name_eng', 'activities')->first();
-        $activities = article::where('mode_article_id', $mode_article->id)->orderBy('date_start', 'desc')->limit(6)->get();
+        // -------------------------------
+        // ดึง category แบบปลอดภัย
+        // -------------------------------
+        $getDocsByCategory = function ($name, $limit = 10) {
+            $category = category_document::where('name', $name)->first();
+            return $category
+                ? Document::where('category_document_id', $category->id)
+                    ->latest()
+                    ->limit($limit)
+                    ->get()
+                : collect();
+        };
 
-        $mode_article_news = mode_article::Where('name_eng', 'news')->first();
-        $news = article::where('mode_article_id', $mode_article_news->id)->orderBy('date_start', 'desc')->limit(6)->get();
+        $ทุนวิจัย = $getDocsByCategory('ประกาศรับทุนวิจัย');
+        $ผลทุน   = $getDocsByCategory('ประกาศผลทุน');
+        $ข่าว    = $getDocsByCategory('ข่าว');
 
-        $mode_article_Admission = mode_article::Where('name_eng', 'Admission')->first();
-        $Admission = article::where('mode_article_id', $mode_article_Admission->id)->orderBy('date_start', 'desc')->limit(3)->get();
+        // -------------------------------
+        // document + banner
+        // -------------------------------
+        $document = Document::latest()->limit(4)->get();
 
-        $mode_article_Official = mode_article::Where('name_eng', 'Official')->first();
-        $Official = article::where('mode_article_id', $mode_article_Official->id)->orderBy('date_start', 'desc')->limit(6)->get();
-
-        $mode_article_calender = mode_article::Where('name_eng', 'calender')->first();
-        $calenders = article::where('mode_article_id', $mode_article_calender->id)
-            ->orderBy('date_start', 'asc') // เรียงจากวันที่เริ่มก่อน
+        $banner_top = Banner::where('place', 'top')
+            ->where('status_show', 1)
+            ->orderBy('ordinal')
+            ->limit(10)
             ->get();
 
-        // $md = People::where('position_id',1)->first();
-        // $md = People::all();
+        // -------------------------------
+        // กิจกรรม (sub menu)
+        // -------------------------------
+        $subMenu = Sub_menu::where('name', 'กิจกรรม')->latest()->first();
 
-        //        $find_video = Main_menu::where('name', 'วิดีโอมหาวิทยาลัย')->first();
-        //        $video = Detail_menu::where('main_menu_id', $find_video->id)->first();
+        $activities = $subMenu
+            ? Detail_menu::where('sub_menu_id', $subMenu->id)
+                ->orderBy('start_date', 'desc')
+                ->limit(6)
+                ->get()
+            : collect();
 
-        // $name_sub2 = Category_document::where('name','ประกาศผลทุน')->first();
-        // $data_detail_menu2 = Document::where('category_document_id',$name_sub2->id)->orderBy('created_at', 'DESC')->limit(8)->get();
-
-        // $name_sub3 = Category_document::where('name','ข่าว')->first();
-        // $data_detail_menu3 = Document::where('category_document_id',$name_sub3->id)->orderBy('created_at', 'DESC')->limit(8)->get();
-
-        // $document = Document::limit(4)->get();
-        // $banner_top = Banner::where('place','top')->where('status_show',1)->orderBy('ordinal', 'ASC')->limit(8)->get();
-
-        // dd($event_cut);
-        $banner_top = Banner::all();
-
+        // -------------------------------
+        // รวม data แบบ index()
+        // -------------------------------
         $data = $this->showMenu();
-        $data['event_cut'] = $event_cut;
-        $data['news_cut'] = $news_cut;
+
+        $data['md'] = $md;
         $data['banner_top'] = $banner_top;
-        $data['course'] = $course;
-        $data['activities'] = $activities;
-        $data['news'] = $news;
-        $data['Official'] = $Official;
-        $data['Admission'] = $Admission;
-        $data['calenders'] = $calenders;
+        $data['event_cut'] = $event_cut;
 
+        // แยกแบบเดิม
+        $data['data_detail_menu1'] = $ทุนวิจัย;
+        $data['data_detail_menu2'] = $ผลทุน;
+        $data['data_detail_menu3'] = $ข่าว;
+        $data['data_detail_menu4'] = $activities;
+
+        // -------------------------------
+        // รวมเป็น articles (เหมือน index ใหม่)
+        // -------------------------------
         $data['articles'] = [
-        'all'        => collect()
-                            ->merge($activities)
-                            ->merge($news)
-                            ->merge($Official)
-                            ->merge($Admission)
-                            ->sortByDesc('date_start')
-                            ->take(6),
+            'all' => collect()
+                ->merge($ทุนวิจัย)
+                ->merge($ผลทุน)
+                ->merge($ข่าว)
+                ->merge($activities)
+                ->sortByDesc('created_at')
+                ->take(10),
 
-        'activities' => $activities,
-        'news'       => $news,
-        'Official'   => $Official,
-        'Admission'  => $Admission,
-    ];
+            'research' => $ทุนวิจัย,
+            'result'   => $ผลทุน,
+            'news'     => $ข่าว,
+            'activity' => $activities,
+        ];
 
-    $data['tab_links'] = [
-        'all'        => route('index.mode_articles_all', ['name' => 'all']), // หรือหน้าข่าวรวม
-        'activities' => route('index.mode_articles_all', ['name' => 'activities']),
-        'news'       => route('index.mode_articles_all', ['name' => 'news']),
-        'Official'   => route('index.mode_articles_all', ['name' => 'Official']),
-        'Admission'  => route('index.mode_articles_all', ['name' => 'Admission']),
-    ];
+        // -------------------------------
+        // tab links
+        // -------------------------------
+        $data['tab_links'] = [
+            'all'      => route('index'),
+            'research' => route('index', ['name' => 'research']),
+            'result'   => route('index', ['name' => 'result']),
+            'news'     => route('index', ['name' => 'news']),
+            'activity' => route('index', ['name' => 'activity']),
+        ];
 
-        //        $data['video'] = $video;
-        //       $data['data_detail_menu1'] = $data_detail_menu1;
-        // $data['data_detail_menu2'] = $data_detail_menu2;
-        // $data['data_detail_menu3'] = $data_detail_menu3;
-            //    dd($data);
         return view('Frontend.index', $data);
     }
 

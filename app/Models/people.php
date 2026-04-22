@@ -1,11 +1,14 @@
 <?php
 
-namespace App;
-
+namespace App\Models;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class people extends Model
 {
+    use HasFactory;
+
+    protected $table = 'people';
     public function position(){
     	// return $this->belongsTo('Position');
     	return Position::Where('id',$this->position_id)->first()->name;

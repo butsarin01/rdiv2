@@ -1,6 +1,6 @@
 <?php
 
-namespace App;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -25,5 +25,5 @@ class ApiRequestModel extends Model
         return  json_decode($result);
     }
 
-   
+
 }
