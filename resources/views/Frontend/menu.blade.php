@@ -1,4 +1,24 @@
- <header id="header" class="header sticky-top">
+<style>
+    /* Frontend submenu */
+    #navmenu .dropdown > ul {
+        background-color: #ffffff;
+    }
+
+    #navmenu .dropdown > ul li > a {
+        color: #000000;
+        background-color: #ffffff;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    #navmenu .dropdown > ul li:hover > a,
+    #navmenu .dropdown > ul li > a:hover,
+    #navmenu .dropdown > ul li > a:focus {
+        color: var(--contrast-color);
+        background-color: var(--nav-hover-color);
+    }
+</style>
+
+<header id="header" class="header sticky-top">
      @php
          $menuData = cache('main-menu') ?? [];
          $template = $menuData['template'] ?? (object) [];
@@ -64,6 +84,40 @@
                                                                                          class="bi bi-dot me-2"></i>{{ $row->year }}</span>
                                                                              </a>
                                                                          </li>
+                                                                     @endforeach
+                                                                 @endif
+                                                             @elseif ($sub->join_database == 'board')
+                                                                 @foreach ($group as $row)
+                                                                     @if ($row->status_setting == 1)
+                                                                         <li>
+                                                                             <a
+                                                                                 href="{{ route('index.board', [$row->id]) }}">{{ $row->name }}
+                                                                             </a>
+                                                                         </li>
+                                                                     @endif
+                                                                 @endforeach
+                                                             @elseif ($sub->join_database == 'type_document')
+                                                                 @if ($sub->join_database_id == 26)
+                                                                     @foreach ($type_doc as $row)
+                                                                         @if ($row->id == $sub->join_database_id)
+                                                                             @foreach ($row->category as $row1)
+                                                                                 <li>
+                                                                                     <a
+                                                                                         href="{{ route('index.document_category', [$row1->id]) }}">{{ $row1->name }}</a>
+                                                                                 </li>
+                                                                             @endforeach
+                                                                         @endif
+                                                                     @endforeach
+                                                                 @else
+                                                                     @foreach ($type_doc as $row)
+                                                                         @if ($row->id == $sub->join_database_id)
+                                                                             @foreach ($row->category as $row1)
+                                                                                 <li>
+                                                                                     <a
+                                                                                         href="{{ route('index.document_category', [$row1->id]) }}">{{ $row1->name }}</a>
+                                                                                 </li>
+                                                                             @endforeach
+                                                                         @endif
                                                                      @endforeach
                                                                  @endif
                                                              @else

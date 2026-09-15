@@ -12,7 +12,7 @@ return [
      * to learn how to get this file. You can also pass the credentials as an array
      * instead of a file path.
      */
-    'service_account_credentials_json' => storage_path('app\private\analytics\webartculture-609b5e670a04.json'),
+    'service_account_credentials_json' => storage_path('app\private\analytics\web-rdi-508708-0712c5c589f2.json'),
 
     /*
      * The amount of minutes the Google API responses will be cached.

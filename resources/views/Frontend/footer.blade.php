@@ -45,9 +45,42 @@
                                      <ul class="list-unstyled">
                                          @foreach ($main->sub_menu as $sub)
                                              @if (!empty($sub->join_database))
-                                                 <li><a href="{{ route($sub->join_database, $sub->join_database_id) }}">
+                                                 {{-- <li><a href="{{ route($sub->join_database, $sub->join_database_id) }}">
                                                          {{ $sub->name }}
-                                                     </a></li>
+                                                     </a></li> --}}
+                                             @elseif ($sub->join_database == 'board')
+                                                 @foreach ($group as $row)
+                                                     @if ($row->status_setting == 1)
+                                                         <li>
+                                                             <a href="{{ route('index.board', [$row->id]) }}">{{ $row->name }}
+                                                             </a>
+                                                         </li>
+                                                     @endif
+                                                 @endforeach
+                                             @elseif ($sub->join_database == 'type_document')
+                                                 @if ($sub->join_database_id == 26)
+                                                     @foreach ($type_doc as $row)
+                                                         @if ($row->id == $sub->join_database_id)
+                                                             @foreach ($row->category as $row1)
+                                                                 <li>
+                                                                     <a
+                                                                         href="{{ route('index.document_category', [$row1->id]) }}">{{ $row1->name }}</a>
+                                                                 </li>
+                                                             @endforeach
+                                                         @endif
+                                                     @endforeach
+                                                 @else
+                                                     @foreach ($type_doc as $row)
+                                                         @if ($row->id == $sub->join_database_id)
+                                                             @foreach ($row->category as $row1)
+                                                                 <li>
+                                                                     <a
+                                                                         href="{{ route('index.document_category', [$row1->id]) }}">{{ $row1->name }}</a>
+                                                                 </li>
+                                                             @endforeach
+                                                         @endif
+                                                     @endforeach
+                                                 @endif
                                              @else
                                                  <li>
                                                      <a href="{{ route('index.content_show', ['sub', $sub->id]) }}">
