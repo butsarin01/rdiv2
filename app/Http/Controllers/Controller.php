@@ -32,7 +32,7 @@ class Controller extends BaseController
     public function __construct()
     {
         $appID = '3027255233';
-        $appSecret = 'E81O2FHOXKXIZINFJSXE' ;
+        $appSecret = 'E81O2FHOXKXIZINFJSXE';
 
         $app = new App($appID, $appSecret);
         $this->auth = $app->createMyAuth();
