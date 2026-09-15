@@ -12,7 +12,8 @@
         "laravel/tinker": "^2.8",
         "mpdf/mpdf": "^8.3",
         "nsru/core": "^1.20",
-        "ryangjchandler/laravel-cloudflare-turnstile": "^1.1"
+        "ryangjchandler/laravel-cloudflare-turnstile": "^1.1",
+        "spatie/laravel-analytics": "^5.6"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

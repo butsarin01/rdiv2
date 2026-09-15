@@ -14,7 +14,7 @@ use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\GuestController;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\ArticleController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Document2Controller;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,7 +27,38 @@ use App\Http\Controllers\DashboardController;
 |
 */
 
-Route::get('/', [GuestController::class, 'index1'])->name('index');
+Route::middleware(['block.spam','throttle:frontend'])->group(function () {
+    Route::get('/', [FrontendController::class, 'index'])->name('index');
+    Route::get('/Personnel={id?}', [FrontendController::class, 'board'])->name('index.board');
+    Route::get('/Mode={mode?}/Id={id?}', [FrontendController::class, 'content_show'])->name('index.content_show');
+    Route::get('/Activity', [FrontendController::class, 'activity_all'])->name('index.activity_all');
+    Route::get('/Activity_detail={id?}', [FrontendController::class, 'activity_detail'])->name('index.activity_detail');
+    Route::get('/News', [FrontendController::class, 'news_all'])->name('index.news_all');
+    Route::get('/News_detail={id?}', [FrontendController::class, 'news_detail'])->name('index.news_detail');
+    Route::get('/Courses/{name?}', [FrontendController::class, 'course_all'])->name('index.course_all');
+    Route::get('/Courses_detail={id?}', [FrontendController::class, 'course_detail'])->name('index.course_detail');
+
+    Route::get('/th/{name?}/detail/{id?}', [FrontendController::class, 'article_detail'])->name('index.article_detail');
+    Route::get('/th/{name?}/{year?}/{month?}', [FrontendController::class, 'mode_articles_all'])->name('index.mode_articles_all');
+
+    Route::get('/Content/Detail/{id?}', [FrontendController::class, 'document_detail'])->name('index.content_detail');
+    Route::get('/Detail/{name?}/{id?}', [FrontendController::class, 'document_detail'])->name('index.document_detail');
+
+    Route::get('/Statistics/{name?}', [FrontendController::class, 'statistics_detail'])->name('index.statistics_detail');
+    // Route::get('/Statistics/{name?}/{year?}', [FrontendController::class, 'statistics_detail'])->name('index.statistics_detail');
+    Route::get('/Report/category/{id?}', [FrontendController::class, 'report_detail'])->name('index.report_detail');
+
+    Route::get('/Document_type={id?}', [FrontendController::class, 'document_all'])->name('index.document_all');
+    Route::get('/Document_category={id?}', [FrontendController::class, 'document_category'])->name('index.document_category');
+    Route::post('/search_document', [FrontendController::class, 'search_document'])->name('index.search_document');
+
+    Route::post('/chart_data', [FrontendController::class, 'get_chart_data'])->name('get_chart_data');
+    Route::get('/direct_line', [GuestController::class, 'direct_line_show'])->name('index.direct_line_show');
+    Route::post('/direct_line_insert', [GuestController::class, 'direct_line_insert'])->name('index.direct_line_insert');
+});
+
+
+// Route::get('/', [GuestController::class, 'index1'])->name('index');
 
 Route::get('/content_show', function () {
 	return view('content');

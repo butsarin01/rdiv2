@@ -57,7 +57,7 @@
 									</li>
 								@else
 								<li >
-									<a href="@if(!empty($sub->join_database)){{ route($sub->join_database) }}@else
+									<a href="@if(!empty($sub->join_database)){{ route($sub->join_database == 'type_document' ? 'index.document_all' : $sub->join_database, $sub->join_database == 'type_document' && !empty($sub->join_database_id) ? [$sub->join_database_id] : []) }}@else
 									{{ route('index.content_show',['sub',$sub->id]) }}@endif
 									">{{ $sub->name }}
 									</a>
@@ -102,7 +102,7 @@
 								@endforeach
 							@else
 								<li >
-									<a href="{{ route($main->join_database) }}">{{ $main->name }}</a>
+									<a href="{{ route($main->join_database == 'type_document' ? 'index.document_all' : $main->join_database, $main->join_database == 'type_document' && !empty($main->join_database_id) ? [$main->join_database_id] : []) }}">{{ $main->name }}</a>
 								</li>
 							@endif
 						@else
