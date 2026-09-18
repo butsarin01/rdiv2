@@ -143,6 +143,12 @@
                              </span>
                          </li>
                      </ul>
+
+                     <a href="{{ route('login') }}" class="btn btn-outline w-100 mt-3"
+                         aria-label="เข้าสู่ระบบสำหรับเจ้าหน้าที่">
+                         <i class="bi bi-person-lock me-2"></i>
+                         เข้าสู่ระบบหลังบ้าน
+                     </a>
                  </div>
              </div>
 

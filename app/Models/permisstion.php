@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Permisstion extends Model
 {
-        use HasFactory;
+    use HasFactory;
 
+    /**
+     * The legacy database uses the original misspelled table name.
+     *
+     * @var string
+     */
+    protected $table = 'permisstions';
 }
