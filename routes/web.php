@@ -63,7 +63,9 @@ Route::middleware(['block.spam','throttle:frontend'])->group(function () {
 Route::get('/content_show', function () {
 	return view('content');
 });
-Route::get('/board{id1?}&&{id2?}',[GuestController::class, 'board'])->name('index.board');
+Route::get('/board{id1?}&&{id2?}', function ($id1 = null) {
+    return redirect()->route('index.board', ['id' => $id1]);
+});
 Route::get('/mode={mode?}&&id={id?}',[GuestController::class, 'content_show'])->name('index.content_show');
 Route::get('/activity_show', [GuestController::class, 'activity_all'])->name('index.activity_all');
 Route::get('/activity_detail={id?}', [GuestController::class, 'activity_detail'])->name('index.activity_detail');
@@ -152,7 +154,7 @@ Route::post('/setting_people/setting_update',[PeopleController::class, 'setting_
 Route::get('/setting_people/{id}',[PeopleController::class, 'edit'])->name('people.edit');
 
 
-Route::get('/setting_document/s',[DocumentController::class, 'setting_all'])->name('setting_documents.index');
+Route::redirect('/setting_document/s', '/document/settings/qualities')->name('setting_documents.index');
 Route::get('/setting_document/{id?}&&{year?}',[DocumentController::class, 'setting_all'])->name('setting_document.index');
 Route::post('/dynamic_year/fetch',[DocumentController::class, 'fetch_year'])->name('dynamic_year.fetch');
 Route::post('/dynamic_type/fetch',[DocumentController::class, 'fetch_type_document'])->name('dynamic_type.fetch');
@@ -190,6 +192,13 @@ Route::post('/product/insert',[CompanyController::class, 'product_insert'])->nam
 Route::get('/product_delete/{id?}',[CompanyController::class, 'delete_product'])->name('product.delete');
 
 Route::get('/document/s',[DocumentController::class, 'index'])->name('document.index');
+Route::get('/document/manage/{mode}/{id?}', [DocumentController::class, 'index'])->whereIn('mode', ['document', 'course'])->name('document.mode');
+Route::redirect('/document/settings/report', '/document/settings/qualities');
+Route::get('/document/settings/{mode}/{year?}', [DocumentController::class, 'setting_all'])->whereIn('mode', ['document', 'course', 'qualities'])->name('document.setting');
+Route::post('/document/manage/settings', [DocumentController::class, 'manage_document_insert'])->name('manage_document.insert');
+Route::get('/document/settings/qualities/delete/{id}', [DocumentController::class, 'quality_delete'])->whereNumber('id')->name('quality.delete');
+Route::post('/course/insert', [DocumentController::class, 'insert_course'])->name('course.insert');
+Route::get('/course/delete/{id}', [DocumentController::class, 'delete_course'])->name('course.delete');
 Route::get('/quality/s',[DocumentController::class, 'quality_index'])->name('quality.index');
 Route::post('/document/insert',[DocumentController::class, 'document_insert'])->name('document.insert');
 Route::post('/document/update',[DocumentController::class, 'document_update'])->name('document.update');
@@ -219,6 +228,12 @@ Route::post('/setting_index/insert',[ContentController::class, 'set_index_insert
 Route::get('/setting_index_top/show',[ContentController::class, 'setting_index_top'])->name('setting.index_top');
 Route::get('/setting_index_top_update/{id?}',[ContentController::class, 'update_index_top'])->name('setting_index_top.update');
 Route::get('/setting_index_top_delete/{id?}',[ContentController::class, 'delete_index_top'])->name('setting_index_top.delete');
+
+Route::get('/setting_banner/{place}', [ContentController::class, 'setting_index_top'])->whereIn('place', ['top', 'popup'])->name('setting_index.index');
+Route::post('/setting_banner', [ContentController::class, 'set_index_insert'])->name('setting_index.insert');
+Route::get('/setting_banner_edit/{id}/{place}', [ContentController::class, 'update_index_top'])->whereIn('place', ['top', 'popup'])->name('setting_index.update');
+Route::get('/setting_banner_delete/{id}/{place}', [ContentController::class, 'delete_index_top'])->whereIn('place', ['top', 'popup'])->name('setting_index.delete');
+Route::post('/setting_banner/toggle', [ContentController::class, 'toggle'])->name('setting_index.toggle');
 
 Route::get('/reference_naga/show',[Document2Controller::class, 'reference_naga'])->name('reference_naga.show');
 Route::post('/reference_naga/insert',[Document2Controller::class, 'reference_naga_insert'])->name('reference_naga.insert');

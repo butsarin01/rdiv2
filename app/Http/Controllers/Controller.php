@@ -9,6 +9,7 @@ use App\Models\Content;
 use App\Models\Detail_menu;
 use App\Models\Main_menu;
 use App\Models\Member;
+use App\Models\mode_article;
 use App\Models\People;
 use App\Models\Sub_menu;
 use App\Models\Title_document;
@@ -45,6 +46,17 @@ class Controller extends BaseController
         });
     }
 
+     protected function showMenuv1($id = '')
+    {
+        session()->remove('main-menu');
+
+        if (! session()->has('main-menu')) {
+            $this->set_session_menuv1();
+        }
+
+        return session()->get('main-menu');
+    }
+
     protected function set_session_menu()
     {
         $main_menu_all = Main_menu::with([
@@ -76,77 +88,98 @@ class Controller extends BaseController
         ];
     }
 
-    protected function showMenuv1($id = '')
+    protected function set_session_menuv1($id = '')
     {
-        // dd(session()->all());
-        session()->remove('main-menu');
-        if (! session()->has('main-menu')) {
-            $newpaper = $this->dc->get_newspaper_object(32);
-            $news_cut = $newpaper->news(3);
-
-            $menu = [];
-            $i = 0;
-            $main_menu_all = Main_menu::orderBy('number_show', 'ASC')->get();
-            if (! empty($main_menu_all)) {
-                foreach ($main_menu_all as $row) {
-                    $menu[$i] = $row;
-                    $menu[$i]->submenu = Sub_menu::where('main_menu_id', $row->id)->orderBy('number_show', 'ASC')->get();
-
-                    if (! empty($row->status_use_link) && empty($row->status_use_title) && empty($row->status_use_thumbnail) && empty($row->status_use_detail) && empty($row->status_use_gallery) && empty($row->status_use_file) && empty($row->join_database) && empty($row->join_database_id) && $row->number_of_data == 1) {
-                        $link = Detail_menu::select('link')->where('main_menu_id', $row->id)->first();
-                        $menu[$i]->link = $link;
-                    }
-                    $submenu = [];
-                    $ii = 0;
-                    foreach ($menu[$i]->submenu as $row_sub) {
-                        $submenu[$ii] = $row_sub;
-                        if (! empty($row_sub->status_use_link) && empty($row_sub->status_use_title) && empty($row_sub->status_use_thumbnail) && empty($row_sub->status_use_detail) && empty($row_sub->status_use_gallery) && empty($row_sub->status_use_file) && empty($row_sub->join_database) && empty($row_sub->join_database_id) && $row_sub->number_of_data == 1) {
-                            $link = Detail_menu::select('link')->where('sub_menu_id', $row_sub->id)->first();
-                            $submenu[$ii]->link = $link;
-                        }
-                        $ii++;
-                    }
-
-                    $i++;
+        $menu = [];
+        $i = 0;
+        $submenu = [];
+        $ii = 0;
+        $main_menu_all = main_menu::orderBy('number_show', 'ASC')->get();
+        if (! empty($main_menu_all)) {
+            foreach ($main_menu_all as $row) {
+                $menu[$i] = $row;
+                $menu[$i]->submenu = Sub_menu::where('main_menu_id', $row->id)->orderBy('number_show', 'ASC')->get();
+                if (! empty($row->status_use_link) && empty($row->status_use_title) && empty($row->status_use_thumbnail) && empty($row->status_use_detail) && empty($row->status_use_gallery) && empty($row->status_use_file) && empty($row->join_database) && empty($row->join_database_id) && $row->number_of_data == 1) {
+                    $link = Detail_menu::select('link')->where('main_menu_id', $row->id)->first();
+                    $menu[$i]->link = $link;
                 }
-            }
-
-            $group = Borad::orderBy('number_show', 'ASC')->get();
-
-            $j = 0;
-            $type_doc = null;
-            $type_doc_all = Type_document::whereNull('type_quality_id')->get();
-            if (! empty($type_doc_all)) {
-                foreach ($type_doc_all as $row) {
-                    $type_doc[$j] = $row;
-                    $type_doc[$j]->category = Category_document::where('type_document_id', $row->id)->orderBy('ordinal', 'asc')->get();
-                    $j++;
+                $submenu = [];
+                $ii = 0;
+                foreach ($menu[$i]->submenu as $row_sub) {
+                    $submenu[$ii] = $row_sub;
+                    if (! empty($row_sub->status_use_link) && empty($row_sub->status_use_title) && empty($row_sub->status_use_thumbnail) && empty($row_sub->status_use_detail) && empty($row_sub->status_use_gallery) && empty($row_sub->status_use_file) && empty($row_sub->join_database) && empty($row_sub->join_database_id) && $row_sub->number_of_data == 1) {
+                        $link = Detail_menu::select('link')->where('sub_menu_id', $row_sub->id)->first();
+                        $submenu[$ii]->sublink = $link;
+                    }
+                    $ii++;
                 }
+                $i++;
             }
-
-            $template = Content::all();
-            $banner = Banner::where('place', 'right')->where('status_show', 1)->orderBy('ordinal', 'ASC')->get();
-            $md = People::where('position_id', 1)->first();
-
-            session()->put('main-menu', [
-                'main_menu_all' => $menu,
-                'group' => $group,
-                'template' => $template,
-                'news_cut' => $news_cut,
-                'type_doc' => $type_doc,
-                'banner' => $banner,
-                'md' => $md,
-            ]);
-            session()->save();
-        } else {
-            // session()->remove('main-menu');
-            // session()->remove('main-menus');
-            // session()->save();
         }
 
-        return session()->get('main-menu');
+        $group = Borad::orderBy('number_show', 'ASC')->get();
 
+        $j = 0;
+        $type_doc = null;
+        $type_doc_all = Type_document::all();
+        if (! empty($type_doc_all)) {
+            foreach ($type_doc_all as $row) {
+                $type_doc[$j] = $row;
+                $type_doc[$j]->category = Category_document::where('type_document_id', $row->id)->get();
+                $j++;
+            }
+        }
+
+        $template = Content::find(1);
+        $mode_article = mode_article::where('status_setting', 1)->get();
+        $banner = Banner::where('place', 'right')->where('status_show', 1)->orderBy('ordinal', 'ASC')->get();
+        $md = people::where('position_id', 1)->first();
+        $visitors = $this->getVisitorsSummary();
+        session()->put('main-menu', [
+            'main_menu_all' => $menu,
+            'group' => $group,
+            'template' => $template,
+            'type_doc' => $type_doc,
+            'mode_article' => $mode_article,
+            'banner' => $banner,
+            'visitors' => $visitors,
+            'md' => $md,
+        ]);
+        session()->save();
+
+        //    dd(session()->all());
+        return session()->get('main-menu');
     }
+
+     public function showMenuBack()
+    {
+        session()->remove('main-menu.main_menu_backend');
+        if (! session()->has('main-menu.main_menu_backend')) {
+            return $this->set_session_menu_backend();
+        }
+    }
+
+    public function set_session_menu_backend()
+    {
+        $menu = [];
+        $i = 0;
+        $submenu = [];
+        $ii = 0;
+        $main_menu_all = [];
+
+        $main_menu_all = Main_menu::where('status_keep_data', 1)->WhereNull('join_database')->orderBy('number_show', 'ASC')->get();
+        $board = borad::all();
+
+        session()->put('main-menu', [
+            'main_menu_backend' => $main_menu_all,
+            'board' => $board,
+        ]);
+        session()->save();
+
+        return session()->get('main-menu');
+    }
+
+
 
     public function main_menu()
     {
@@ -172,6 +205,8 @@ class Controller extends BaseController
                 $staff = $this->dc->find_staff($username);
                 $request->session()->put('user', [
                     'member_id' => $check_member->id,
+                    'permission' => $check_member->permisstion_id,
+                    'permission_name' => $check_member->permisstion(),
                     'permisstion' => $check_member->permisstion_id,
                     'permisstion_name' => $check_member->permisstion(),
                     'full_name' => $staff->full_name,
@@ -181,7 +216,7 @@ class Controller extends BaseController
             }
 
         }
-
+// dd($request->session()->all());
         return redirect()->route('admin');
     }
 
@@ -203,10 +238,10 @@ class Controller extends BaseController
 
     public function admin()
     {
-        $data = $this->showMenu();
+        $data = $this->showMenuv1();
 
-        // return dd($data);
-        return view('Backend.admin.admin', $data);
+    //    dd(session()->all());
+        return view('backend.admin.admin', $data);
         // return view('admin.admin');
         // return view('admin.setting_menu', $data);
     }

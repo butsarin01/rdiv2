@@ -15,15 +15,7 @@
                         <input class="form-control hide" type="text" id="id" name="id" placeholder=""
                                data-parsley-required="true"/>
                         <div class="form-group row m-b-15">
-                            <!-- <div class="col-md-4 col-sm-4 ">
-                                <center>
-                                <label class="col-md-3 col-sm-3 col-form-label">รูป</label>
-                                <div class="col-md-9 col-sm-9 ">
-                                    <img src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png" class="avatar img-thumbnail" alt="avatar" style="height: 200px; width: auto;">
-                                    <input class="form-control file-upload" type="file" id="image_name" name="image_name" placeholder="" data-parsley-required="true" />
-                                </div>
-                                </center>
-                            </div> -->
+
                             <div class="col-md-2"></div>
                             <div class="col-md-8 col-sm-8">
                                 <div class="form-group row m-b-15">
@@ -41,21 +33,11 @@
                                     </div>
                                 </div>
 
-                            <!-- <div class="form-group row m-b-15">
-										<label class="col-form-label col-md-2">ประเภทของเอกสาร:</label>
-										<div class="col-md-4">
-											{{ Form::select('type_document_id', App\Type_document::all()->pluck('name','id'), null, ['placeholder' => 'กรุณาเลือกคำนำหน้า...','class'=>'form-control']) }}
-                                </div>
 
-                                <label class="col-form-label col-md-2">หมวดหมู่ของเอกสาร:</label>
-                                <div class="col-md-4">
-{{ Form::select('category_document_id', App\Category_document::all()->pluck('name','id'), null, ['placeholder' => 'กรุณาเลือกคำนำหน้า...','class'=>'form-control']) }}
-                                </div>
-                            </div> -->
                                 <div class="form-group row m-b-15">
                                     <label class="col-md-2 col-sm-2 col-form-label" for="file">ผู้ส่ง :</label>
                                     <div class="col-md-2">
-                                        {{ Form::select('sent_office_id',App\Sent_office::all()->pluck('name','id'), null, ['placeholder' => 'เลือกผู้ส่ง...','class'=>'form-control']) }}
+                                        <select name="sent_office_id" class="form-select"><option value="">เลือกผู้ส่ง</option>@foreach ($sent_office as $office)<option value="{{ $office->id }}">{{ $office->name }}</option>@endforeach</select>
                                     </div>
                                     <div class="col-md-2 col-sm-2">
                                         <a href="#modal-dialog" class="btn btn-sm btn-success" data-toggle="modal"
@@ -76,7 +58,7 @@
                                     </div>
                                     <label class="col-form-label col-md-2">ชั้นความเร็ว:</label>
                                     <div class="col-md-4">
-                                        {{ Form::select('Level_document_id', App\Level_document::all()->pluck('name','id'), null, ['placeholder' => 'กรุณาเลือกชั้นความเร็ว...','class'=>'form-control']) }}
+                                        <select name="level_document_id" class="form-select"><option value="">เลือกชั้นความเร็ว</option>@foreach ($levels as $level)<option value="{{ $level->id }}">{{ $level->name }}</option>@endforeach</select>
                                     </div>
                                 </div>
                                 <div class="form-group row m-b-15">
@@ -94,7 +76,7 @@
                                 </div>
                                 <div class="form-group float-right ">
                                     <button type="submit" class="btn btn-sm btn-primary m-r-5">บันทึก</button>
-                                    <!-- <button type="submit" class="btn btn-sm btn-default">ยกเลิก</button> -->
+
                                 </div>
 
                             </div>

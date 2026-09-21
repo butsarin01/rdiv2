@@ -30,7 +30,7 @@
                                 enctype="multipart/form-data">
                                 @csrf
                                 <input class="form-control hide" type="text" id="sent_office_id" name="sent_office_id"
-                                    placeholder="" data-parsley-required="true" />
+                                    placeholder="" data-parsley-required="true" value="{{ $editing_office->id ?? '' }}" />
 
                                 <div class="form-group row m-b-15">
                                     <label class="col-md-1 col-sm-1 col-form-label"
@@ -38,20 +38,20 @@
                     _name">ชื่อย่อ :</label>
                                     <div class="col-md-2 col-sm-2">
                                         <input class="form-control" type="text" id="name_sent_office" name="name"
-                                            placeholder="" />
+                                            placeholder="" value="{{ $editing_office->name ?? '' }}" />
                                     </div>
                                     <label class="col-md-1 col-sm-1 col-form-label" for="fullname">
                                         ชื่อเต็ม:</label>
                                     <div class="col-md-8 col-sm-8">
                                         <input class="form-control" type="text" id="fullname" name="fullname"
-                                            placeholder="" data-parsley-required="true" />
+                                            placeholder="" data-parsley-required="true" value="{{ $editing_office->fullname ?? '' }}" />
                                     </div>
                                 </div>
                                 <div class="form-group row m-b-15">
                                     <label class="col-md-1 col-sm-1 col-form-label" for="name">ที่อยู่ :</label>
                                     <div class="col-md-11 col-sm-11">
                                         <input class="form-control" type="text" id="address" name="address"
-                                            placeholder="" data-parsley-required="true" />
+                                            placeholder="" data-parsley-required="true" value="{{ $editing_office->address ?? '' }}" />
                                     </div>
                                 </div>
                                 <div class="col-md-6 col-sm-6  float-right ">
@@ -75,7 +75,7 @@
                                             <td>{{ $row->fullname }}</td>
                                             <td>{{ $row->address }}</td>
                                             <td>
-                                                <a class="btn btn-yellow" href="{{ route('document.edit', [$row->id]) }}"
+                                                <a class="btn btn-yellow" href="{{ route('sent_office.index', ['id' => $row->id]) }}"
                                                     role="button">แก้ไข</a>
                                                 <a class="btn btn-red" href="{{ route('sent_office.delete', [$row->id]) }}"
                                                     role="button">ลบ</a>
@@ -137,10 +137,10 @@
                                                 <?php echo 'ไม่มีไฟล์'; ?>
                                             @endif
                                         </td>
-                                        <td>{{ $row->type_document->name }}</td>
+                                        <td>{{ $row->type_document?->name ?? '-' }}</td>
                                         <td>
                                             <a class="btn btn-yellow"
-                                                href="{{ route('document.edit', ['course', $row->id]) }}"
+                                                href="{{ route('document.mode', ['course', $row->id]) }}"
                                                 role="button">แก้ไข</a>
                                             <a class="btn btn-red" href="{{ route('course.delete', [$row->id]) }}"
                                                 role="button">ลบ</a>
@@ -158,6 +158,11 @@
     </div>
 @endsection
 @section('script_content')
+    @if (!empty($editing_office))
+        <script>
+            $(function () { new bootstrap.Modal(document.getElementById('modal-dialog')).show(); });
+        </script>
+    @endif
     <script type="text/javascript">
         $.ajaxSetup({
             beforeSend: function(xhr, type) {
@@ -302,6 +307,8 @@
                 method: "POST",
                 data: {
                     select: select,
+                    source: name || (dependent === 'type_document_id' ? 'year' : ''),
+                    base: 'course',
                     value: value,
                     _token: _token,
                     dependent: dependent

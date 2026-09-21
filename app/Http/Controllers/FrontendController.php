@@ -10,7 +10,7 @@ use App\Models\course;
 use App\Models\detail_menu;
 use App\Models\detail_menu_array;
 use App\Models\document;
-use App\Models\group_people;
+use App\Models\group_prople;
 use App\Models\main_menu;
 use App\Models\mode_article;
 use App\Models\people;
@@ -826,46 +826,36 @@ class FrontendController extends Controller
         return view('Frontend.document', $data);
     }
 
-    public function board($id1 = '', $id2 = '')
+    public function board($id = '')
     {
-        $people1 = [];
-        $people2 = [];
-        $j1 = 0;
-        $mode = borad::where('id', $id1)->first();
-
-        $group1 = group_people::where('borad_id', $id1)->get();
-        $borad = borad::where('id', $id1)->get();
-
-        if (! empty($borad[0])) {
-            foreach ($borad as $row) {
-                $people1[$j1] = $row;
-                $group1 = group_people::where('borad_id', $id1)->get();
-                $people1[$j1]->group = $group1;
-                if (! empty($group1[0])) {
-                    $group1_people1 = [];
-                    $gp1 = 0;
-                    foreach ($people1[$j1]->group as $row1) {
-                        $group1_people1[$gp1] = $row1;
-                        $group1_people1[$gp1]->people = people::where('people.group_people_id', $row1->id)
-                            ->join('positions', 'people.position_id', '=', 'positions.id')->orderBy('positions.ordinal', 'ASC')->select('people.*')->get();
-                        $gp1++;
-                    }
-                }
-                $people1[$j1]->people = People::where('people.borad_id', $row->id)
-                    ->join('positions', 'people.position_id', '=', 'positions.id')->orderBy('positions.ordinal', 'ASC')->select('people.*')->get();
-                $j1++;
-            }
+        $board = borad::when($id !== '', fn ($query) => $query->whereKey($id))->orderBy('id')->firstOrFail();
+        $groups = group_prople::where('borad_id', $board->id)->orderBy('ordinal')->get();
+        foreach ($groups as $group) {
+            $group->setRelation('people', people::where('people.group_prople_id', $group->id)
+                ->leftJoin('positions', 'people.position_id', '=', 'positions.id')
+                ->orderByRaw('COALESCE(positions.ordinal, 999999)')
+                ->orderBy('people.id')
+                ->select('people.*')
+                ->get());
         }
+        $groupedIds = $groups->flatMap(fn ($group) => $group->people->pluck('id'));
+        $ungroupedPeople = people::where('people.borad_id', $board->id)
+            ->when($groupedIds->isNotEmpty(), fn ($query) => $query->whereNotIn('people.id', $groupedIds))
+            ->leftJoin('positions', 'people.position_id', '=', 'positions.id')
+            ->orderByRaw('COALESCE(positions.ordinal, 999999)')
+            ->orderBy('people.id')
+            ->select('people.*')
+            ->get();
 
-        $menu_sub = sub_menu::where('join_database', 'index.board')->where('join_database_id', $id1)->first();
+        $menu_sub = sub_menu::where('join_database', 'index.board')->where('join_database_id', $board->id)->first();
 
         $data = $this->showMenu();
         $data['menu'] = $menu_sub;
-        $data['borad'] = $borad;
-        $data['people1'] = $people1;
-        $data['people2'] = $people2;
+        $data['board'] = $board;
+        $data['personnelGroups'] = $groups;
+        $data['ungroupedPeople'] = $ungroupedPeople;
 
-        return view('Frontend.borad', $data);
+        return view('Frontend.personnel', $data);
     }
 
     public function board2($id1 = '', $id2 = '')
@@ -875,20 +865,20 @@ class FrontendController extends Controller
         $j1 = 0;
         $mode = borad::where('id', $id1)->first();
 
-        $group1 = group_people::where('borad_id', $id1)->get();
+        $group1 = group_prople::where('borad_id', $id1)->get();
         $borad = borad::where('id', $id1)->get();
 
         if (! empty($borad[0])) {
             foreach ($borad as $row) {
                 $people1[$j1] = $row;
-                $group1 = group_people::where('borad_id', $id1)->get();
+                $group1 = group_prople::where('borad_id', $id1)->get();
                 $people1[$j1]->group = $group1;
                 if (! empty($group1[0])) {
                     $group1_people1 = [];
                     $gp1 = 0;
                     foreach ($people1[$j1]->group as $row1) {
                         $group1_people1[$gp1] = $row1;
-                        $group1_people1[$gp1]->people = people::where('people.group_people_id', $row1->id)
+                        $group1_people1[$gp1]->people = people::where('people.group_prople_id', $row1->id)
                             ->join('positions', 'people.position_id', '=', 'positions.id')->orderBy('positions.ordinal', 'ASC')->select('people.*')->limit(5)->get();
                         $gp1++;
                     }

@@ -79,9 +79,9 @@
                     'btn' => ['หมวดที่', 'ตัวชี้วัด', 'หัวข้อ', 'หัวข้อย่อย'],
                     'col1' => ['xl' => 2, 'md' => 3],
                     'col2' => ['xl' => 10, 'md' => 9],
-                    'name_tab' => 'รายการข้อมูลการประเมินคุณธรรมและความโปร่งใส',
+                    'name_tab' => 'รายการข้อมูลประกันคุณภาพ',
                     'color' => 'green',
-                    'name_form' => 'จัดข้อมูลการประเมิน',
+                    'name_form' => 'จัดการข้อมูลประกันคุณภาพ',
                     'select' => [
                         [
                             'label' => 'ปี',
@@ -389,24 +389,7 @@
             });
 
 
-            $('.status_setting_group').click(function() {
-                var group_id = $(this).attr('group-id');
-                var status = $(this).is(":checked") ? 1 : 0;
-                $.ajax({
-                    url: '{{ route('people.setting_update') }}',
-                    method: 'POST',
-                    data: {
-                        "_token": "{{ csrf_token() }}",
-                        'mode': 'people',
-                        'group_id': group_id,
-                        'status_setting': status
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        // alert(data.alert);
-                    }
-                });
-            });
+
 
 
         });
@@ -545,6 +528,8 @@
                 method: "POST",
                 data: {
                     select: select,
+                    source: name || (dependent === 'type_document_id' ? 'year' : ''),
+                    base: @json($mode),
                     value: value,
                     _token: _token,
                     dependent: dependent

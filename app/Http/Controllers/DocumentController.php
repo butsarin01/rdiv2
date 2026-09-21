@@ -2,626 +2,678 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\category_document;
+use App\Models\course;
+use App\Models\document;
+use App\Models\group_prople;
+use App\Models\level_document;
+use App\Models\sent_office;
+use App\Models\sub_document;
+use App\Models\sub_title_document;
+use App\Models\title_document;
+use App\Models\type_document;
+use App\Models\type_quality;
+use App\Models\year;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use App\Borad;
-use App\Position;
-use App\Main_menu;
-use App\Sub_menu;
-use App\Company;
-use App\Sub_document;
-use App\Document;
-use App\Level_document;
-use App\Sent_office;
-use App\Type_document;
-use App\Category_document;
-use App\Title_document;
-use App\Type_quality;
-use App\year;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DocumentController extends Controller
 {
-    public function index($id = '')
-    {	
-         if(!session()->has('user')) 
-        {
-            return redirect('login'); 
-        }else
-        {
-	    	$data_document = array();
-            $count_document = 0;
-            $document = Document::orderBy('id', 'DESC')->get();
-            $sent_office = Sent_office::all();
+    private const FILE_RULE = 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar|max:51200';
 
-
-            foreach ($document as $doc){
-                $data_document[$count_document] = $doc;
-                $data_document[$count_document]->number_sub_document = Sub_document::where('document_id',$doc->id)->count();
-                $count_document++;
-
-            }
-
-            $data = $this->showMenu();
-            $data['document'] = $data_document;
-            $data['sent_office'] = $sent_office;
-
-
-	        return view('admin.document', $data);
-        }
+    public function __construct()
+    {
+        parent::__construct();
+        $this->middleware('member-permission');
     }
 
-    public function quality_index($id = '')
-    {   
-         if(!session()->has('user')) 
-        {
-            return redirect('login'); 
-        }else
-        {
-            $data_document = array();
-            $count_document = 0;
-            $document = Document::whereNotNull('type_quality_id')->orderBy('id', 'DESC')->get();
-            $sent_office = Sent_office::all();
-            
-
-            foreach ($document as $doc){
-                $data_document[$count_document] = $doc;
-                $data_document[$count_document]->number_sub_document = Sub_document::where('document_id',$doc->id)->count();
-                $count_document++;
-
-            }
-
-            $data = $this->showMenu();
-            $data['document'] = $data_document;
-            $data['sent_office'] = $sent_office;
-
-
-            return view('admin.quality_insert', $data);
+    public function index($mode = 'document', $id = '')
+    {
+        abort_unless(in_array($mode, ['document', 'course'], true), 404);
+        $types = type_document::where('mode', $mode)->orderBy('ordinal')->get();
+        $model = $mode === 'course' ? course::class : document::class;
+        $item = $id !== '' ? $model::findOrFail($id) : null;
+        if ($mode === 'document' && $item && $item->type_quality_id) {
+            $types = type_document::where('type_quality_id', $item->type_quality_id)->orderBy('ordinal')->get();
         }
-    }
+        $items = $model::orderBy('id', 'desc')->get();
 
+        return view('backend.'.$mode.'.document', array_merge($this->showMenuv1(), [
+            'data_document' => $items, 'document' => $item, 'type_document' => $types,
+            'sent_office' => sent_office::all(), 'years' => year::orderBy('year', 'desc')->get(),
+            'groups' => group_prople::where('borad_id', 3)->orderBy('ordinal')->get(),
+            'sub_document' => $mode === 'document' && $item ? sub_document::where('document_id', $item->id)->get() : collect(),
+        ]));
+    }
 
     public function edit($id)
     {
-        $page = '';
-    	$data_sub_document = array();
-        $document = Document::find($id);
-        $check_sub_document = Sub_document::where('document_id',$id)->get();
-        if(!empty($check_sub_document)){
-            $data_sub_document = $check_sub_document;
-        }
-
-        if (!empty($document->type_quality_id)) {
-            $page = 'admin.quality_edit';
-        }else{
-            $page = 'admin.document_edit';
-        }
-
-        $data = $this->showMenu();
-        $data['document'] = $document;
-        $data['sub_document'] = $data_sub_document;
-        return view($page, $data);
-    	// return $id;
+        return $this->index('document', $id);
     }
 
+    public function quality_index($id = '')
+    {
+        $item = $id !== ''
+            ? document::whereNotNull('type_quality_id')->findOrFail($id)
+            : null;
+        $items = document::whereNotNull('type_quality_id')->orderByDesc('id')->get();
+        foreach ($items as $row) {
+            $row->number_sub_document = sub_document::where('document_id', $row->id)->count();
+        }
+
+        $qualities = type_quality::orderBy('id')->get();
+        $selectedQuality = $item?->type_quality_id ?? $qualities->first()?->id;
+        $types = type_document::whereNotNull('type_quality_id')
+            ->when($selectedQuality, fn ($query) => $query->where('type_quality_id', $selectedQuality))
+            ->orderBy('ordinal')
+            ->get();
+
+        return view('backend.quality.document', array_merge($this->showMenuv1(), [
+            'data_document' => $items,
+            'document' => $item,
+            'type_document' => $types,
+            'type_qualities' => $qualities,
+            'selected_quality_id' => $selectedQuality,
+            'sent_office' => sent_office::all(),
+            'years' => year::when($selectedQuality, fn ($query) => $query->where('type_quality_id', $selectedQuality))->orderByDesc('year')->get(),
+            'groups' => group_prople::where('borad_id', 3)->orderBy('ordinal')->get(),
+            'sub_document' => $item ? sub_document::where('document_id', $item->id)->get() : collect(),
+        ]));
+    }
+
+    public function quality_edit($id)
+    {
+        return $this->quality_index($id);
+    }
+
+    protected function validateHierarchy(Request $request): void
+    {
+        $request->validate([
+            'type_document_id' => 'nullable|integer|exists:type_documents,id',
+            'category_document_id' => ['nullable', 'integer', Rule::exists('category_documents', 'id')->where('type_document_id', $request->type_document_id)],
+            'title_document_id' => ['nullable', 'integer', Rule::exists('title_documents', 'id')->where('category_document_id', $request->category_document_id)->where('type_document_id', $request->type_document_id)],
+            'sub_title_document_id' => ['nullable', 'integer', Rule::exists('sub_title_documents', 'id')->where('title_document_id', $request->title_document_id)->where('category_document_id', $request->category_document_id)->where('type_document_id', $request->type_document_id)],
+        ]);
+    }
 
     public function document_insert(Request $request)
     {
-        // dd($request->all());
-        if(!empty($request->document_id)){
-           	$document = Document::where('id',$request->document_id)->first(); 
-
-           	if ($request->hasFile('image_name')) {
-                Storage::disk('public')->delete('document_img/'.$document->thumbnail);
+        $request->validate([
+            'document_id' => 'nullable|integer|exists:documents,id', 'name' => 'required|string|max:250',
+            'image_name' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'filename' => 'nullable|'.self::FILE_RULE,
+            'multifilename' => 'nullable|array', 'multifilename.*' => 'nullable|'.self::FILE_RULE,
+            'multiname' => 'nullable|array', 'multiname.*' => 'nullable|string|max:250',
+            'link' => 'nullable|string|max:255', 'detail' => 'nullable|string',
+            'ordinal' => 'nullable|integer|min:0', 'status_use' => 'nullable|boolean',
+            'number_document' => 'nullable|string|max:255', 'year' => 'nullable|digits:4',
+            'sent_office_id' => 'nullable|integer|exists:sent_offices,id',
+            'level_document_id' => 'nullable|integer|exists:level_documents,id',
+            'type_quality_id' => 'nullable|integer|exists:type_qualities,id',
+        ]);
+        $this->validateHierarchy($request);
+        if ($request->filled('type_quality_id') && $request->filled('type_document_id')) {
+            $qualityType = type_document::findOrFail($request->type_document_id);
+            if ((int) $qualityType->type_quality_id !== (int) $request->type_quality_id
+                || ($request->filled('year') && (string) $qualityType->year !== (string) $request->year)) {
+                throw ValidationException::withMessages([
+                    'type_document_id' => 'ประเภทเอกสารไม่ตรงกับรูปแบบประกันคุณภาพหรือปีที่เลือก',
+                ]);
             }
-            if ($request->hasFile('filename')) {
-                Storage::disk('public')->delete('document/'.$document->file);
+        }
+        $item = $request->filled('document_id') ? document::findOrFail($request->document_id) : new document;
+        $item->{$item->exists ? 'member_id_update' : 'member_id_create'} = session('user.member_id');
+        foreach (['name', 'link', 'detail', 'number_document', 'year', 'type_quality_id', 'sent_office_id', 'level_document_id', 'type_document_id', 'category_document_id', 'title_document_id', 'sub_title_document_id'] as $field) {
+            if ($request->has($field)) {
+                $item->$field = $request->input($field);
             }
-
-            $document->member_id_update = $request->member_id;
-        }else{
-           $document = new Document();
-           $document->member_id_create = $request->member_id;
         }
-
-    	$document->name = $request->name;
-
-    	if ($request->hasFile('image_name')) {
-            $new_image_name = uniqid().'.'.$request->image_name->extension();
-
-            $request->image_name->storeAs('document_img',$new_image_name,'public');
-            $document->thumbnail  = $new_image_name;
+        if ($request->filled('type_document_id')) {
+            $type = type_document::findOrFail($request->type_document_id);
+            if (! $request->has('type_quality_id')) {
+                $item->type_quality_id = $type->type_quality_id;
+            }
+            if (! $request->has('year')) {
+                $item->year = $type->year;
+            }
         }
-
-        if ($request->hasFile('filename')) {
-            $new_file_name = uniqid().'.'.$request->filename->extension();
-
-            $request->filename->storeAs('document',$new_file_name,'public');
-            $document->file  = $new_file_name;
+        $item->status_use = $request->input('status_use') ?? ($item->getAttributes()['status_use'] ?? 1);
+        $item->ordinal = $request->input('ordinal') ?? $item->ordinal ?? 0;
+        if ($request->has('date_announcement')) {
+            $item->date_announcement = $this->documentDate($request->date_announcement);
         }
-
-        $d = substr($request->date_announcement, 3,-5);
-        $m = substr($request->date_announcement, 0,-8);
-        $y = substr($request->date_announcement, -4);
-
-        if ($y > 2500) {
-            $y = $y-543;
-        }
-
-        $new_date = $y.'-'.$m.'-'.$d;
-        $document->date_announcement = $new_date;
-        $document->number_document = $request->number_document;
-    	
-        $document->type_document_id = $request->type_document_id;
-    	$document->category_document_id = $request->category_document_id;
-        $document->sent_office_id = $request->sent_office_id;
-        $document->level_document_id = $request->level_document_id;
-        $document->title_document_id = $request->title_document_id;
-        $document->status_use = $request->status_use;
-        $document->ordinal = $request->ordinal;
-
-        if (!empty($request->link)) {
-            $document->link = $request->link;
-        }
-        
-        $document->year = $request->year;
-        $document->type_quality_id = $request->type_quality_id;
-    	$document->detail = $request->detail;
-    	 // return dd($new_date);
-    	$document->save();  
-        if (!empty($request->multifilename)) {
-           
-            if(!empty($request->document_id)){
-                $data_detail = Sub_document::where('document_id',$request->document_id)->first();
-                if(!empty($data_detail)){
-                    $name_folder = $data_detail->id;
-                    $name_path = '/sub_document/' . $name_folder;
-                }else{
-                    $name_folder = $request->document_id;
-                    $name_path = '/sub_document/' . $name_folder;
-                    $path = public_path() . $name_path;
-                    File::makeDirectory($path, 0777, true, true);
+        $newFiles = $oldFiles = [];
+        try {
+            DB::transaction(function () use ($item, $request, &$newFiles, &$oldFiles) {
+                $this->replaceUpload($item, 'thumbnail', $request->file('image_name'), 'document_img', $newFiles, $oldFiles);
+                $this->replaceUpload($item, 'file', $request->file('filename'), 'document', $newFiles, $oldFiles);
+                $item->save();
+                foreach ($request->file('multifilename', []) as $key => $file) {
+                    if (! $file) {
+                        continue;
+                    }
+                    $attachment = new sub_document;
+                    $attachment->document_id = $item->id;
+                    $attachment->name = $request->input('multiname.'.$key) ?: $file->getClientOriginalName();
+                    $attachment->status_use = $item->status_use;
+                    $attachment->member_id_create = session('user.member_id');
+                    $this->replaceUpload($attachment, 'file', $file, 'sub_document/'.$item->id, $newFiles, $oldFiles);
+                    $attachment->save();
                 }
-                $data_detail_id =  $request->document_id;
-
-            }else {
-                $data_detail = Document::where('name', $request->name)->where('created_at', $this->today())->first();
-
-                $name_folder = $data_detail->id;
-                $name_path = '/sub_document/' . $name_folder;
-                $path = public_path() . $name_path;
-                File::makeDirectory($path, 0777, true, true);
-
-                $data_detail_id =  $data_detail->id;
-            }
-
-            foreach ($request->multifilename as $key => $value) {
-                $sub_document = new Sub_document();
-
-                $new_file_name = uniqid() . '.' . $value->extension();
-                $value->storeAs($name_path, $new_file_name, 'public');
-
-                $sub_document->document_id = $data_detail_id;
-                $sub_document->name = $request->multiname[$key];
-                $sub_document->status_use = $request->status_use;
-                $sub_document->file = $new_file_name;
-
-                $sub_document->save();
-            }
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($newFiles);
+            throw $exception;
         }
-        // return redirect()->route('document.index');
-    	return redirect()->back();
-    	
+        Storage::disk('public')->delete($oldFiles);
+
+        return redirect()->route('document.index');
     }
-     public function delete_document($id = '')
-    {   
-        $document = Document::where('id',$id)->first();
 
-        $sub_document_all = Sub_document::where('document_id',$document->id)->get();
-        if(!empty($sub_document_all)){
-            foreach ($sub_document_all as $row) {
-                Storage::disk('public')->delete('sub_document/'.$id.'/'.$row->file);
-                $sub_document = Sub_document::find($row->id)->delete();
-            }
-            File::deleteDirectory(public_path('sub_document/'.$id));
-            File::deleteDirectory(public_path('\storage/sub_document/'.$id)); 
-        }
-        Storage::disk('public')->delete('document/'.$document->file);
-        $document = Document::find($id)->delete();
-
-        // return redirect()->route('document.index');
-        return redirect()->back();
-    }  
-    public function sub_document($id = '')
-    {   
-        $document = Document::find($id);
-
-        $sub_document = Sub_document::where('document_id',$id)->get();
-        $data = $this->showMenu();
-        $data['sub_document'] = $sub_document;
-        $data['document'] = $document;
-        return view('admin.document_sub', $data);
-    }
-     public function sub_document_insert(Request $request)
+    public function document_update(Request $request)
     {
-        
-        if(!empty($request->id)){
-           	$sub_document = Sub_document::where('id',$request->id)->first(); 
-           	if ($request->hasFile('filename')) {
-                Storage::disk('public')->delete('sub_document/'.$sub_document->file);
+        if (! $request->filled('document_id')) {
+            $request->merge(['document_id' => $request->id]);
+        }
+        $request->validate(['document_id' => 'required|integer|exists:documents,id']);
+
+        return $this->document_insert($request);
+    }
+
+    protected function documentDate($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts)) {
+            [, $year, $month, $day] = $parts;
+        } elseif (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $value, $parts)) {
+            [, $month, $day, $year] = $parts;
+        } else {
+            throw ValidationException::withMessages(['date_announcement' => 'Invalid date.']);
+        }
+        $year = (int) $year > 2500 ? (int) $year - 543 : (int) $year;
+        if (! checkdate((int) $month, (int) $day, $year)) {
+            throw ValidationException::withMessages(['date_announcement' => 'Invalid date.']);
+        }
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
+    }
+
+    protected function replaceUpload($model, $column, $file, $directory, array &$newFiles, array &$oldFiles): void
+    {
+        if (! $file) {
+            return;
+        }
+        $path = $file->store($directory, 'public');
+        if (! $path) {
+            throw new \RuntimeException('Unable to store uploaded file.');
+        }
+        $newFiles[] = $path;
+        if ($model->$column) {
+            $oldFiles[] = $directory.'/'.$model->$column;
+        }
+        $model->$column = basename($path);
+    }
+
+    protected function attachmentPaths(sub_document $item): array
+    {
+        // Older single-file forms saved attachments directly in sub_document.
+        return $item->file ? ['sub_document/'.$item->document_id.'/'.$item->file, 'sub_document/'.$item->file] : [];
+    }
+
+    public function delete_document($id = '')
+    {
+        $item = document::findOrFail($id);
+        $files = [];
+        if ($item->thumbnail) {
+            $files[] = 'document_img/'.$item->thumbnail;
+        }
+        if ($item->file) {
+            $files[] = 'document/'.$item->file;
+        }
+        foreach (sub_document::where('document_id', $id)->get() as $attachment) {
+            $files = array_merge($files, $this->attachmentPaths($attachment));
+        }
+        DB::transaction(function () use ($item) {
+            sub_document::where('document_id', $item->id)->delete();
+            $item->delete();
+        });
+        Storage::disk('public')->delete($files);
+
+        return redirect()->route('document.index');
+    }
+
+    public function sub_document($id = '')
+    {
+        return view('backend.document.document_sub', array_merge($this->showMenuv1(), [
+            'document' => document::findOrFail($id), 'sub_document' => sub_document::where('document_id', $id)->get(),
+            'sent_office' => sent_office::all(), 'levels' => level_document::all(),
+        ]));
+    }
+
+    public function sub_document_insert(Request $request)
+    {
+        $request->validate([
+            'id' => 'nullable|integer|exists:sub_documents,id', 'document_id' => 'required|integer|exists:documents,id',
+            'name' => 'required|string|max:250', 'filename' => 'required_without:id|nullable|'.self::FILE_RULE,
+            'status_use' => 'nullable|boolean', 'number_document' => 'nullable|string|max:255',
+            'sent_office_id' => 'nullable|integer|exists:sent_offices,id',
+            'level_document_id' => 'nullable|integer|exists:level_documents,id',
+        ]);
+        $item = $request->filled('id') ? sub_document::where('document_id', $request->document_id)->findOrFail($request->id) : new sub_document;
+        $item->{$item->exists ? 'member_id_update' : 'member_id_create'} = session('user.member_id');
+        $oldFiles = $request->hasFile('filename') ? $this->attachmentPaths($item) : [];
+        $newFiles = [];
+        $item->name = $request->name;
+        $item->document_id = $request->document_id;
+        $item->status_use = $request->input('status_use') ?? ($item->getAttributes()['status_use'] ?? 1);
+        foreach (['number_document', 'sent_office_id', 'level_document_id'] as $field) {
+            if ($request->has($field)) {
+                $item->$field = $request->input($field);
             }
-            $sub_document->member_id_update = $request->member_id;
-        }else{
-           $sub_document = new Sub_document();
-           $sub_document->member_id_create = $request->member_id;
         }
-
-        $sub_document->name = $request->name;
-
-        if ($request->hasFile('filename')) {
-            $new_file_name = uniqid().'.'.$request->filename->extension();
-
-            $request->filename->storeAs('sub_document',$new_file_name,'public');
-            $sub_document->file  = $new_file_name;
+        if ($request->has('date_announcement')) {
+            $item->date_announcement = $this->documentDate($request->date_announcement);
         }
-        
-        $sub_document->document_id = $request->document_id;
-    	$sub_document->status_use = $request->status_use;
-      
-        
-        $sub_document->save();  
-        return redirect()->route('sub_document.show',[$request->document_id]);
-        
+        try {
+            $this->replaceUpload($item, 'file', $request->file('filename'), 'sub_document/'.$item->document_id, $newFiles, $oldFiles);
+            $item->save();
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($newFiles);
+            throw $exception;
+        }
+        Storage::disk('public')->delete($oldFiles);
+
+        return redirect()->route('sub_document.show', $item->document_id);
     }
 
     public function delete_sub_document($id = '')
-    {   
-        $sub_document = Sub_document::where('id',$id)->first();
-        $document_id = $sub_document->document_id;
+    {
+        $item = sub_document::findOrFail($id);
+        $files = $this->attachmentPaths($item);
+        $parent = $item->document_id;
+        $item->delete();
+        Storage::disk('public')->delete($files);
 
-        Storage::disk('public')->delete('sub_document/'.$document_id.'/'.$sub_document->file);
-
-        $sub_document = Sub_document::find($id)->delete();
-
-        // return redirect()->route('sub_document.show',['id'=>$document_id]);
-        return redirect()->back();
+        return redirect()->route('sub_document.show', $parent);
     }
 
+    public function sent_office(Request $request)
+    {
+        $request->validate(['id' => 'nullable|integer|exists:sent_offices,id']);
+
+        return $this->index()->with('editing_office', $request->filled('id') ? sent_office::findOrFail($request->id) : null);
+    }
 
     public function sent_office_insert(Request $request)
     {
-        
-        if(!empty($request->sent_office_id)){
-            $sent_office = Sent_office::where('id',$request->sent_office_id)->first(); 
-        }else{
-           $sent_office = new Sent_office();
+        $request->validate(['sent_office_id' => 'nullable|integer|exists:sent_offices,id', 'name' => 'required|string|max:250', 'fullname' => 'required|string|max:250', 'address' => 'required|string|max:255']);
+        $item = $request->filled('sent_office_id') ? sent_office::findOrFail($request->sent_office_id) : new sent_office;
+        foreach (['name', 'fullname', 'address'] as $field) {
+            $item->$field = $request->input($field);
         }
+        $item->save();
 
-        $sent_office->name = $request->name;
-        $sent_office->fullname = $request->fullname;
-        $sent_office->address = $request->address;
-
-         // return dd($request);
-        $sent_office->save();  
         return redirect()->route('document.index');
-        
     }
+
+    public function sent_office_update(Request $request)
+    {
+        if (! $request->filled('sent_office_id')) {
+            $request->merge(['sent_office_id' => $request->id]);
+        }
+        $request->validate(['sent_office_id' => 'required|integer|exists:sent_offices,id']);
+
+        return $this->sent_office_insert($request);
+    }
+
     public function delete_sent_office($id = '')
-    {   
-        $sent_office = Sent_office::find($id)->delete();
+    {
+        $item = sent_office::findOrFail($id);
+        abort_if(document::where('sent_office_id', $id)->exists() || sub_document::where('sent_office_id', $id)->exists(), 422, 'This office is used by documents.');
+        $item->delete();
+
         return redirect()->route('document.index');
     }
-    function fetch_year(Request $request)
+
+    protected function options($rows, $value = 'id'): string
     {
-        $output = '';
-        $select = $request->select;
-        $value = $request->value;
-        $dependent = $request->dependent;
-        $data = year::where('type_quality_id', $value)->get();
-        foreach ($data as $key => $row) {
-            if ($key == 0) {
-                $output = '<option value="' . $row->year . '">' . $row->year . '</option>';
-            } else {
-                $output .= '<option value="' . $row->year . '">' . $row->year . '</option>';
-            }
-        }
-        return $output;
-    }
-     function fetch_type_document(Request $request)
-    {
-        $output = '';
-        $select = $request->select;
-        $value = $request->value;
-        $dependent = $request->dependent;
-        // $data = Type_document::where('year', $value)->get();
-        $data = Type_document::where('type_quality_id', $value)->get();
-        foreach ($data as $key => $row) {
-            if ($key == 0) {
-                $output = '<option value="' . $row->id . '">' . $row->name . '</option>';
-            } else {
-                $output .= '<option value="' . $row->id . '">' . $row->name . '</option>';
-            }
-        }
-        return $output;
-    }  
-    function fetch_category_document(Request $request)
-    {
-        $output='';
-        $select = $request->select;
-        $value = $request->value;
-        $dependent = $request->dependent;
-        $data = Category_document::where('type_document_id',$value)->get();
-        foreach ($data as $key => $row) {
-            if ($key == 0) {
-                $output = '<option value="'.$row->id.'">'.$row->name.'</option>';
-            }else{
-                $output .= '<option value="'.$row->id.'">'.$row->name.'</option>';
-            } 
-        }
-        return $output;
+        return $rows->map(fn ($row) => '<option value="'.e($row->$value).'" data-ordinal="'.e($row->ordinal ?? 0).'">'.e($value === 'year' ? $row->year : trim(($row->code ?? '').' '.$row->name)).'</option>')->implode('');
     }
 
-    function fetch_title_document(Request $request)
+    public function fetch_year(Request $request)
     {
-        $output='';
-        $select = $request->select;
-        $value = $request->value;
-        $dependent = $request->dependent;
-        $data = Title_document::where('category_document_id',$value)->get();
-        if (isset($data)) {
-           foreach ($data as $key => $row) {
-                if ($key == 0) {
-                    $output .= '<option value="'.$row->id.'">'.$row->name.'</option>';
-                }else{
-                    $output .= '<option value="'.$row->id.'">'.$row->name.'</option>';
-                }
-            }
-        }
-        return $output;
+        return $this->options(year::where('type_quality_id', $request->value)->orderByDesc('year')->get(), 'year');
     }
-   
-    public function setting_all($type_quality_id = "" ,$year= '')
+
+    public function fetch_type_document(Request $request)
     {
-        $quality = Type_quality::all();
-
-        $data_quality = array(); $i=0;
-
-        foreach ($quality as $row) {
-            $data_quality[$i] =  $row;
-            $data_quality[$i]->year = year::where('type_quality_id',$row->id)->orderBy('year', 'desc')->get();
-            $i++;
-        }
-
-        if(!empty($year) && !empty($type_quality_id)){
-            $year_all = year::where('type_quality_id',$type_quality_id)->where('year', $year)->get();
-        }else{
-            $year_all = array();
-        }
-
-
-        if(!empty($year)){
-            $year_last =$year;
-        }else{
-            $year_check = year::where('type_quality_id',$type_quality_id)->orderBy('year', 'desc')->first();
-
-            if (!empty($year_check)) {
-                $year_last = $year_check->year;
-            }else{
-                $year_last = "";
+        $query = type_document::query();
+        if ($request->select === 'year' || $request->source === 'year') {
+            if ($request->filled('value')) {
+                $query->where('year', $request->value);
             }
+            if ($request->filled('type_quality_id')) {
+                $query->where('type_quality_id', $request->type_quality_id);
+            }
+        } else {
+            $query->where('type_quality_id', $request->value);
+        }
+        if ($request->filled('base')) {
+            $query->where('mode', $request->base);
         }
 
-        if(!empty($type_quality_id)){
-            $type_quality_id_last =$type_quality_id;
-        }else{
-            $type_quality_id_last = "";
-        }
-
-        $data = $this->showMenu();
-        $data['set_document_setting'] = $this->set_document_setting($type_quality_id,$year);
-        $data['data_quality'] = $data_quality;
-        $data['year'] = $year_last;
-        $data['quality'] = $type_quality_id_last;
-        $data['years'] = $year_all;
-
-       // dd($data);
-        return view('admin.quality', $data);
-
+        return $this->options($query->orderBy('ordinal')->get());
     }
-    function fetch_dataAll_document(Request $request)
+
+    public function fetch_category_document(Request $request)
     {
-        $output = array();
-        $Subtitle = '';
-        $title = '';
-        $category = '';
-        $type = '';
-        $year = '';
+        return $this->options(category_document::where('type_document_id', $request->value)->orderBy('ordinal')->get());
+    }
 
-//        dd($request->all());
+    public function fetch_title_document(Request $request)
+    {
+        return $this->options(title_document::where('category_document_id', $request->value)->orderBy('ordinal')->get());
+    }
 
-       if($request->mode == 'title'){
-            $title = Title_document::where('id',$request->id)->first();
-            $category = Category_document::where('id',$title->category_document_id)->first();
-            $type = Type_document::where('id',$title->type_document_id)->first();
-            $year = $title->year;
-        }elseif($request->mode == 'category'){
-            $category = Category_document::where('id',$request->id)->first();
-            $type = Type_document::where('id',$category->type_document_id)->first();
-            $year = $category->year;
-        }elseif($request->mode == 'type'){
-            $type = Type_document::where('id',$request->id)->first();
-            $year = $type->year;
-        }
+    public function fetch_sub_title_document(Request $request)
+    {
+        return $this->options(sub_title_document::where('title_document_id', $request->value)->orderBy('ordinal')->get());
+    }
 
-        $output = [
-            // 'Subtitle' => $Subtitle,
-            'title' => $title,
-            'category' => $category,
-            'type' => $type,
-            'year' => $year
+    public function fetch_dataAll_document(Request $request)
+    {
+        $models = ['type' => type_document::class, 'category' => category_document::class, 'title' => title_document::class, 'Subtitle' => sub_title_document::class, 'SubTitle' => sub_title_document::class];
+        $request->validate(['mode' => ['required', Rule::in(array_keys($models))], 'id' => 'required|integer']);
+        $row = $models[$request->mode]::findOrFail($request->id);
+
+        return [
+            'Subtitle' => $row instanceof sub_title_document ? $row : null,
+            'title' => $row instanceof title_document ? $row : title_document::find($row->title_document_id),
+            'category' => $row instanceof category_document ? $row : category_document::find($row->category_document_id),
+            'type' => $row instanceof type_document ? $row : type_document::find($row->type_document_id),
+            'year' => $row->year,
         ];
-
-        return $output;
     }
 
-
-     public function title_document_insert(Request $request)
+    public function setting_all($mode = 'document', $year = '')
     {
-        if(!empty($request->id_title)){
-           $title = Title_document::where('id',$request->id_title)->first();
-        }else{
-           $title = new Title_document();
+        if ($mode === 'qualities') {
+            return view('backend.quality.setting', array_merge($this->showMenuv1(), [
+                'qualities' => type_quality::orderBy('id')->get(),
+            ]));
         }
-        $title->name = $request->name_title;
-        $title->type_document_id = $request->id_type;
-        $title->category_document_id = $request->id_category;
-        $title->year = $request->year;
-        // dd($request->year);
-        $title->save();
 
-        $arr = array('msg' => 'Successfully submit form using ajax', 'status' => true);
+        $quality = is_numeric($mode) ? $mode : null;
+        if ($quality !== null) {
+            $mode = 'report';
+        }
+        $mode = $mode ?: 'document';
+        abort_unless(in_array($mode, ['document', 'course', 'report'], true), 404);
+        $years = year::when($quality !== null, fn ($q) => $q->where('type_quality_id', $quality))->orderBy('year')->get();
+        $year = $year ?: ($years->last()?->year ?? '');
+        $types = type_document::when($quality !== null, fn ($q) => $q->where('type_quality_id', $quality), fn ($q) => $q->where('mode', $mode))
+            ->when($mode === 'report' && $year !== '', fn ($q) => $q->where('year', $year))->orderBy('ordinal')->get();
+        foreach ($types as $type) {
+            $categories = category_document::where('type_document_id', $type->id)->orderBy('ordinal')->get();
+            foreach ($categories as $category) {
+                $titles = title_document::where('category_document_id', $category->id)->orderBy('ordinal')->get();
+                foreach ($titles as $title) {
+                    $title->setRelation('sub_title', sub_title_document::where('title_document_id', $title->id)->orderBy('ordinal')->get());
+                }
+                $category->setRelation('title', $titles);
+            }
+            $type->setRelation('category', $categories);
+        }
 
-        // return redirect()->route('document.index');
-        return redirect()->back();
+        return view('backend.document.setting_mode', array_merge($this->showMenuv1(), [
+            'types' => $types, 'set_document_setting' => $types, 'years' => $years, 'mode' => $mode, 'current_year' => $year,
+        ]));
     }
 
-    public function category_document_insert(Request $request)
+    public function manage_document_insert(Request $request)
     {
-        if(!empty($request->id_Category)){
-           $category = Category_document::where('id',$request->id_Category)->first();
-        }else{
-           $category = new Category_document();
-        }
-        $category->name = $request->name_Category;
-        $category->type_document_id = $request->id_type;
-        $category->year = $request->year;
-        $category->save();
+        $methods = ['quality' => 'quality_save', 'type' => 'type_document_insert', 'category' => 'category_document_insert', 'title' => 'title_document_insert', 'SubTitle' => 'sub_title_document_insert'];
+        $request->validate(['table' => ['required', Rule::in(array_keys($methods))]]);
 
-        // return redirect()->route('document.index');
-        return redirect()->back();
+        return $this->{$methods[$request->table]}($request);
+    }
+
+    public function quality_save(Request $request)
+    {
+        $request->validate([
+            'id_quality' => 'nullable|integer|exists:type_qualities,id',
+            'name_quality' => 'required|string|max:250',
+        ]);
+        $quality = $request->filled('id_quality')
+            ? type_quality::findOrFail($request->id_quality)
+            : new type_quality;
+        $quality->name_th = $request->name_quality;
+        $quality->save();
+
+        return redirect()->route('document.setting', 'qualities');
+    }
+
+    public function quality_delete($id)
+    {
+        $quality = type_quality::findOrFail($id);
+        abort_if(
+            type_document::where('type_quality_id', $id)->exists()
+                || document::where('type_quality_id', $id)->exists()
+                || year::where('type_quality_id', $id)->exists(),
+            422,
+            'ไม่สามารถลบประเภทประกันคุณภาพที่มีข้อมูลใช้งานอยู่ได้'
+        );
+        $quality->delete();
+
+        return redirect()->route('document.setting', 'qualities');
     }
 
     public function type_document_insert(Request $request)
     {
-//        dd($request->id_type);
-        if(!empty($request->id_type)){
-           $type = Type_document::where('id',$request->id_type)->first();
-        }else{
-           $type = new Type_document();
-        }
-        $type->name = $request->name_type;
-        $type->year = $request->year;
-        $type->save();
+        return $this->saveClassification($request, 'type');
+    }
 
-        // return redirect()->route('document.index');
+    public function category_document_insert(Request $request)
+    {
+        return $this->saveClassification($request, 'category');
+    }
+
+    public function title_document_insert(Request $request)
+    {
+        return $this->saveClassification($request, 'title');
+    }
+
+    public function sub_title_document_insert(Request $request)
+    {
+        return $this->saveClassification($request, 'Subtitle');
+    }
+
+    protected function saveClassification(Request $request, string $kind)
+    {
+        if ($kind === 'category') {
+            $request->merge(['id_category' => $request->input('id_category', $request->id_Category), 'name_category' => $request->input('name_category', $request->name_Category)]);
+        }
+        $models = ['type' => type_document::class, 'category' => category_document::class, 'title' => title_document::class, 'Subtitle' => sub_title_document::class];
+        $model = $models[$kind];
+        $table = (new $model)->getTable();
+        $request->validate([
+            'id_'.$kind => 'nullable|integer|exists:'.$table.',id', 'name_'.$kind => 'required|string|max:250',
+            'year' => 'nullable|digits:4', 'ordinal' => 'nullable|integer|min:0',
+            'base' => 'nullable|in:document,course,report', 'type_quality_id' => 'nullable|integer|exists:type_qualities,id',
+            'detail_title' => 'nullable|string', 'detail_Subtitle' => 'nullable|string', 'code_Subtitle' => 'nullable|string|max:250',
+        ]);
+        $row = $request->filled('id_'.$kind) ? $model::findOrFail($request->input('id_'.$kind)) : new $model;
+        $row->name = $request->input('name_'.$kind);
+        $row->ordinal = $request->input('ordinal') ?? $row->ordinal ?? 0;
+        $row->year = $request->input('year', $row->year);
+        if ($kind === 'type') {
+            $row->mode = $request->input('base') ?? $row->mode ?? 'document';
+            $row->type_quality_id = $request->input('type_quality_id', $row->type_quality_id);
+        } else {
+            $request->validate(['id_type' => 'required|integer|exists:type_documents,id']);
+            $parent = type_document::findOrFail($request->id_type);
+            // Existing classification nodes stay under their original parent.
+            abort_if($row->exists && $row->type_document_id != $parent->id, 422, 'Cannot move a classification to another parent.');
+            $row->type_document_id = $parent->id;
+            $row->year = $parent->year;
+            $row->type_quality_id = $parent->type_quality_id;
+            if (in_array($kind, ['title', 'Subtitle'], true)) {
+                $request->validate(['id_category' => ['required', Rule::exists('category_documents', 'id')->where('type_document_id', $parent->id)]]);
+                abort_if($row->exists && $row->category_document_id != $request->id_category, 422, 'Cannot move a classification to another parent.');
+                $row->category_document_id = $request->id_category;
+                $row->detail = $request->input('detail_'.$kind);
+            }
+            if ($kind === 'Subtitle') {
+                $request->validate(['id_title' => ['required', Rule::exists('title_documents', 'id')->where('category_document_id', $request->id_category)]]);
+                abort_if($row->exists && $row->title_document_id != $request->id_title, 422, 'Cannot move a classification to another parent.');
+                $row->title_document_id = $request->id_title;
+                $row->code = $request->code_Subtitle;
+            }
+        }
+        $row->save();
+
         return redirect()->back();
     }
 
     public function type_document_delete($id = '')
     {
-
-        $categorys = Category_document::where('type_document_id',$id)->get();
-        if (!empty($categorys)) {
-            foreach ($categorys as $category) {
-               $titles = Title_document::where('category_document_id',$category->id)->get();
-               if (!empty($titles)) {
-                    foreach ($titles as $title) {
-                        $t = Title_document::find($title->id)->delete();
-                    }
-               }
-               $c = Category_document::find($category->id)->delete();
-            }
-
-        }
-        $type = Type_document::find($id)->delete();
-        return redirect()->back();
-
+        return $this->deleteClassification('type', $id);
     }
+
     public function category_document_delete($id = '')
     {
-       $titles = Title_document::where('category_document_id',$id)->get();
-       if (!empty($titles)) {
-            foreach ($titles as $title) {
-                $t = Title_document::find($title->id)->delete();
-            }
-       }
-       $c = Category_document::find($id)->delete();
-        return redirect()->back();
+        return $this->deleteClassification('category', $id);
     }
 
     public function title_document_delete($id = '')
     {
-        $t = Title_document::find($id)->delete();
+        return $this->deleteClassification('title', $id);
+    }
+
+    public function sub_title_document_delete($id = '')
+    {
+        return $this->deleteClassification('sub_title', $id);
+    }
+
+    protected function deleteClassification($kind, $id)
+    {
+        $models = ['type' => type_document::class, 'category' => category_document::class, 'title' => title_document::class, 'sub_title' => sub_title_document::class];
+        $row = $models[$kind]::findOrFail($id);
+        $column = $kind.'_document_id';
+        abort_if(document::where($column, $id)->exists() || (in_array($kind, ['type', 'category'], true) && course::where($column, $id)->exists()), 422, 'This classification is used by documents.');
+        DB::transaction(function () use ($kind, $column, $id, $row) {
+            if ($kind !== 'sub_title') {
+                sub_title_document::where($column, $id)->delete();
+            }
+            if (in_array($kind, ['type', 'category'], true)) {
+                title_document::where($column, $id)->delete();
+            }
+            if ($kind === 'type') {
+                category_document::where($column, $id)->delete();
+            }
+            $row->delete();
+        });
 
         return redirect()->back();
     }
 
     public function year_insert(Request $request)
     {
-
-        $year_check = year::where('type_quality_id',$request->type_quality_id)->orderBy('year', 'desc')->first();
-
-        if ($year_check != "") {
-            $year_last = $year_check->year;
-        }else{
-            $year_last = " ";
-        }
-
-
-        $today = date("Y-m-d H:i:s");
-
-        $year = new year();
-        $year->year = $request->year;
-        $year->type_quality_id = $request->type_quality_id;
-        $year->save();
-
-        $count_data = 0;
-        $count_category = 0;
-        $count_title = 0;
-        $data = array();
-        $data_type = array();
-        $data_category = array();
-        $data_title = array();
-        $types = Type_document::where('type_quality_id',$request->type_quality_id)->where('year',$year_last)->get();
-        if(!empty($types)){
-            foreach ($types as $key =>  $row){
-                $type = new Type_document();
-                $type->name = $row->name;
-                $type->year = $request->year;
-                $type->type_quality_id = $row->type_quality_id;
-                $type->save();
-
-                $data_type = Type_document::where('year',$request->year)->where('name',$row->name)->where('created_at',$today)->first();
-
-                $categorys = Category_document::where('type_document_id',$row->id)->where('year',$year_last)->get();
-                foreach ($categorys as $key1 =>  $row1){
-                    $category = new Category_document();
-                    $category->name = $row1->name;
-                    $category->type_document_id = $data_type->id;
-                    $category->year = $request->year;
-                    $category->type_quality_id = $row1->type_quality_id;
-
-                    $category->save();
-
-                    $data_category = Category_document::where('name',$row1->name)->where('type_document_id',$data_type->id)->where('year',$request->year)->where('created_at',$today)->first();
-
-                    $titles = title_document::where('type_document_id',$row->id)->where('category_document_id',$row1->id)->where('year',$year_last)->get();
-                    foreach ($titles as $key2 =>  $row2){
-                        $title = new Title_document();
-                        $title->name = $row2->name;
-                        $title->type_document_id = $data_type->id;
-                        $title->category_document_id = $data_category->id;
-                        $title->year = $request->year;
-                        $title->type_quality_id = $row2->type_quality_id;
-                        $title->save();
+        $request->validate(['year' => 'required|digits:4', 'mode' => 'nullable|in:document,course,report', 'type_quality_id' => 'nullable|integer|exists:type_qualities,id']);
+        $mode = $request->input('mode', 'document');
+        $quality = $request->type_quality_id;
+        DB::transaction(function () use ($request, $mode, $quality) {
+            $scope = fn () => type_document::when($quality !== null, fn ($q) => $q->where('type_quality_id', $quality), fn ($q) => $q->where('mode', $mode));
+            $exists = $scope()->where('year', $request->year)->exists();
+            $previous = $scope()->where('year', '<', $request->year)->orderByDesc('year')->value('year');
+            $yearRow = year::where('year', $request->year)->where('type_quality_id', $quality)->first();
+            if (! $yearRow) {
+                $yearRow = new year;
+                $yearRow->year = $request->year;
+                $yearRow->type_quality_id = $quality;
+                $yearRow->save();
+            }
+            if ($exists || ! $previous) {
+                return;
+            }
+            foreach ($scope()->where('year', $previous)->get() as $oldType) {
+                $newType = $oldType->replicate();
+                $newType->year = $request->year;
+                $newType->save();
+                foreach (category_document::where('type_document_id', $oldType->id)->get() as $oldCategory) {
+                    $newCategory = $oldCategory->replicate();
+                    $newCategory->type_document_id = $newType->id;
+                    $newCategory->year = $request->year;
+                    $newCategory->save();
+                    foreach (title_document::where('category_document_id', $oldCategory->id)->get() as $oldTitle) {
+                        $newTitle = $oldTitle->replicate();
+                        $newTitle->type_document_id = $newType->id;
+                        $newTitle->category_document_id = $newCategory->id;
+                        $newTitle->year = $request->year;
+                        $newTitle->save();
+                        foreach (sub_title_document::where('title_document_id', $oldTitle->id)->get() as $oldSub) {
+                            $newSub = $oldSub->replicate();
+                            $newSub->type_document_id = $newType->id;
+                            $newSub->category_document_id = $newCategory->id;
+                            $newSub->title_document_id = $newTitle->id;
+                            $newSub->year = $request->year;
+                            $newSub->save();
+                        }
                     }
                 }
             }
-        }
+        });
 
-
-        return redirect()->route('setting_document.index');
+        return redirect()->back();
     }
 
+    public function insert_course(Request $request)
+    {
+        $request->validate([
+            'course_id' => 'nullable|integer|exists:courses,id', 'title' => 'required|string|max:250',
+            'title_eng' => 'nullable|string|max:250', 'title_short' => 'nullable|string|max:250', 'title_short_eng' => 'nullable|string|max:250',
+            'unit' => 'nullable|string|max:250', 'course_open' => 'nullable|string|max:250', 'occupation' => 'nullable|string', 'detail' => 'nullable|string',
+            'group_people_id' => 'nullable|integer|exists:group_proples,id', 'status_use' => 'nullable|boolean',
+            'link' => 'nullable|array', 'link.*' => 'nullable|url|max:2048',
+            'image_name' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+        ]);
+        $this->validateHierarchy($request);
+        $row = $request->filled('course_id') ? course::findOrFail($request->course_id) : new course;
+        foreach (['title', 'title_eng', 'title_short', 'title_short_eng', 'unit', 'course_open', 'occupation', 'detail', 'type_document_id', 'category_document_id', 'group_people_id'] as $field) {
+            $row->$field = $request->input($field);
+        }
+        $row->status_use = $request->input('status_use') ?? $row->status_use ?? 1;
+        $row->link = implode('|', array_filter($request->input('link', [])));
+        $row->account_action = session('user.ldap_username');
+        $row->ip_address = $request->ip();
+        $row->date_save = $this->today();
+        $newFiles = $oldFiles = [];
+        try {
+            $this->replaceUpload($row, 'thumbnail', $request->file('image_name'), 'course', $newFiles, $oldFiles);
+            $row->save();
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($newFiles);
+            throw $exception;
+        }
+        Storage::disk('public')->delete($oldFiles);
+
+        return redirect()->route('document.mode', 'course');
+    }
+
+    public function delete_course($id = '')
+    {
+        $row = course::findOrFail($id);
+        $thumbnail = $row->thumbnail;
+        $row->delete();
+        if ($thumbnail) {
+            Storage::disk('public')->delete('course/'.$thumbnail);
+        }
+
+        return redirect()->route('document.mode', 'course');
+    }
 }

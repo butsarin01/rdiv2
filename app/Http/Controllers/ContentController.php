@@ -2,343 +2,347 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\banner;
+use App\Models\borad;
+use App\Models\detail_menu;
+use App\Models\group_prople;
+use App\Models\main_menu;
+use App\Models\people;
+use App\Models\position;
+use App\Models\prefix;
+use App\Models\sub_menu;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Http\Controllers\Controller;
-use App\Main_menu;
-use App\Sub_menu;
-use App\Detail_menu;
-use App\Borad;
-use App\Position;
-use App\People;
-use App\Banner;
-use Image;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ContentController extends Controller
 {
+    public function __construct()
+    {
+        parent::__construct();
+        $this->middleware('member-permission');
+    }
 
     public function index($id = '', $mode = '')
     {
-        if (!session()->has('user')) {
+        if (! session()->has('user')) {
             return redirect('login');
-        } else {
-            $count_data = 0;
-            $menu = array();
-            if ($mode == 'main') {
-                $menu = Main_menu::find($id);
-                $data_detail_menu = Detail_menu::where('main_menu_id', $id)->get();
-                $a = 'main';
-                $count_data = Detail_menu::where('main_menu_id', $id)->count();
-            } else {
-                $menu = Sub_menu::find($id);
-                $data_detail_menu = Detail_menu::where('sub_menu_id', $id)->get();
-                $a = 'sub';
-                $count_data = Detail_menu::where('sub_menu_id', $id)->count();
-
-            }
-            $data = $this->showMenu();
-            $data['menu'] = $menu;
-            $data['data_detail_menu'] = $data_detail_menu;
-            $data['mode'] = $a;
-            $data['count_data'] = $count_data + 1;
-
-            // return dd($data);
-            return view('admin.index', $data);
         }
+        $mode = $mode ?: request('mode', 'sub');
+        $menu = $this->contentMenu($id, $mode);
+        $query = detail_menu::where($mode.'_menu_id', $id)->orderBy('number_show')->orderBy('id');
+        $data = $this->showMenuv1();
+        $data['menu'] = $menu;
+        $data['mode'] = $mode;
+        $data['data_detail_menu'] = $menu->number_of_data == 2 ? null : $query->first();
+        $data['data_detail_menu_all'] = $menu->number_of_data == 2 ? $query->get() : collect();
+
+        return view('backend.content.page', $data);
     }
 
+    protected function contentMenu($id, $mode)
+    {
+        abort_unless(in_array($mode, ['main', 'sub'], true), 404);
+
+        return $mode === 'main' ? main_menu::findOrFail($id) : sub_menu::findOrFail($id);
+    }
+
+    protected function peopleData($id): array
+    {
+        return array_merge($this->showMenuv1(), [
+            'group_id' => borad::findOrFail($id),
+            'position' => position::where('borad_id', $id)->orderBy('oridal')->get(),
+            'data_group' => group_prople::where('borad_id', $id)->orderBy('ordinal')->get(),
+            'prefix' => prefix::all(),
+        ]);
+    }
 
     public function borad($id = '')
     {
+        $data = $this->peopleData($id);
+        $data['peopleAll_id'] = people::where('borad_id', $id)->orderBy('ordinal')->get();
 
-        $group_id = Borad::find($id);
-        $peopleAll_id = People::where('borad_id', $id)->get();
-
-        $data = $this->showMenu();
-        $data['group_id'] = $group_id;
-        $data['peopleAll_id'] = $peopleAll_id;
-
-        return view('admin.peopleAll', $data);
-    }
-
-    public function insert_people(Request $request)
-    {
-        $people = new People();
-        if (!empty($request->prefix_id)) {
-            $people->prefix_id = $request->prefix_id;
-        }
-        $people->name = $request->people_name;
-        $people->lastname = $request->people_lastname;
-
-        if ($request->hasFile('image_name')) {
-            $new_image_name = uniqid() . '.' . $request->image_name->extension();
-
-            $request->image_name->storeAs('people', $new_image_name, 'public');
-            $people->thumbnail = $new_image_name;
-        }
-
-        $people->borad_id = $request->group_id;
-        $people->position_id = $request->position_id;
-
-        $people->position_self = $request->people_other;
-
-        $people->email = $request->people_email;
-        $people->telephone = $request->people_telephone;
-        $people->ldep_username = $request->ldep_username;
-        $people->member_id_create = $request->member_id;
-
-        $people->group_prople_id = $request->group_prople_id;
-
-
-        $people->save();
-        return redirect()->route('content.borad', [$request->group_id]);
-
+        return view('backend.people.peopleAll', $data);
     }
 
     public function edit_people($id = '')
     {
+        $person = people::findOrFail($id);
+        $data = $this->peopleData($person->borad_id);
+        $data['people_id'] = $person;
 
-        $people_id = People::where('id', $id)->first();
-        $group_id = Borad::find($people_id->borad_id);
+        return view('backend.people.peopleAll_edit', $data);
+    }
 
-        $data = $this->showMenu();
-        $data['group_id'] = $group_id;
-        $data['people_id'] = $people_id;
-        return view('admin.peopleAll_edit', $data);
+    public function insert_people(Request $request)
+    {
+        $request->merge(['group_prople_id' => $request->input('group_people_id', $request->input('group_prople_id'))]);
+        $request->validate([
+            'id' => 'nullable|integer|exists:people,id',
+            'group_id' => 'required|integer|exists:borads,id',
+            'people_name' => 'required|string|max:250',
+            'people_lastname' => 'nullable|string|max:250',
+            'prefix_id' => 'nullable|integer|exists:prefix,id',
+            'position_id' => ['nullable', 'integer', Rule::exists('positions', 'id')->where('borad_id', $request->group_id)],
+            'group_prople_id' => ['nullable', 'integer', Rule::exists('group_proples', 'id')->where('borad_id', $request->group_id)],
+            'people_email' => 'nullable|email|max:250',
+            'people_telephone' => 'nullable|string|max:250',
+            'people_other' => 'nullable|string|max:250',
+            'ldep_username' => 'nullable|string|max:250',
+            'ordinal' => 'nullable|integer|min:0',
+            'image_name' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'link_image' => 'nullable|url|max:250',
+            'link_personal' => 'nullable|url|max:250',
+            'status' => 'nullable|boolean',
+        ]);
+        $person = $request->filled('id') ? people::findOrFail($request->id) : new people;
+        $person->{$person->exists ? 'member_id_update' : 'member_id_create'} = session('user.member_id');
+        $person->prefix_id = $request->prefix_id;
+        $person->name = $request->people_name;
+        $person->lastname = $request->people_lastname;
+        $person->borad_id = $request->group_id;
+        $person->position_id = $request->position_id;
+        $person->group_prople_id = $request->group_prople_id;
+        $person->position_self = $request->people_other;
+        $person->email = $request->people_email;
+        $person->telephone = $request->people_telephone;
+        $person->ldep_username = $request->ldep_username;
+        $person->ordinal = $request->input('ordinal') ?? $person->ordinal ?? 0;
+        $person->link_image = $request->input('link_image', $person->link_image);
+        $person->link_personal = $request->input('link_personal', $person->link_personal);
+        $person->status_show = $request->input('status', $person->status_show ?? 1);
+        $this->saveWithUploads($person, $request, ['image_name' => ['thumbnail', 'people']]);
+
+        return redirect()->route('content.borad', $person->borad_id);
     }
 
     public function update_people(Request $request)
     {
+        $request->validate(['id' => 'required|integer|exists:people,id']);
 
-        $people = People::find($request->id);
-        $people->prefix_id = $request->prefix_id;
-        $people->name = $request->people_name;
-        $people->lastname = $request->people_lastname;
-
-        if ($request->hasFile('image_name')) {
-
-            Storage::disk('public')->delete('people/' . $people->thumbnail);
-            $new_image_name = uniqid() . '.' . $request->image_name->extension();
-            $request->image_name->storeAs('people', $new_image_name, 'public');
-            $people->thumbnail = $new_image_name;
-        }
-
-        $people->borad_id = $request->group_id;
-        $people->position_id = $request->position_id;
-        $people->position_self = $request->people_other;
-        $people->email = $request->people_email;
-        $people->telephone = $request->people_telephone;
-        $people->ldep_username = $request->ldep_username;
-
-        $people->member_id_update = $request->member_id;
-
-        $people->group_prople_id = $request->group_prople_id;
-
-        $people->save();
-
-        return redirect()->route('content.borad', $request->group_id);
-
+        return $this->insert_people($request);
     }
 
     public function delete_people($id = '')
     {
-        $people_id = People::where('id', $id)->first();
-        $group_id = Borad::find($people_id->borad_id);
+        $person = people::findOrFail($id);
+        $group = $person->borad_id;
+        $thumbnail = $person->thumbnail;
+        $person->delete();
+        if ($thumbnail) {
+            Storage::disk('public')->delete('people/'.$thumbnail);
+        }
 
-        Storage::disk('public')->delete('people/' . $people_id->thumbnail);
-        $people = People::find($id)->delete();
-
-        return redirect()->route('content.borad', $group_id->id);
+        return redirect()->route('content.borad', $group);
     }
 
     public function insert_detail_menu(Request $request)
     {
-//        dd($request);
-
-        if (!empty($request->detail_menu_id)) {
-            $detail_menu = Detail_menu::where('id', $request->detail_menu_id)->first();
-
-            if ($request->hasFile('image_name')) {
-                Storage::disk('public')->delete('content/' . $detail_menu->thumbnail);
+        $request->validate([
+            'detail_menu_id' => 'nullable|integer|exists:detail_menus,id',
+            'main_menu_id' => 'nullable|required_without:sub_menu_id|prohibits:sub_menu_id|integer|exists:main_menus,id',
+            'sub_menu_id' => 'nullable|required_without:main_menu_id|prohibits:main_menu_id|integer|exists:sub_menus,id',
+            'title' => 'nullable|string|max:250',
+            'detail' => 'nullable|string',
+            'link' => 'nullable|string|max:250',
+            'number_show' => 'nullable|integer|min:0',
+            'image_name' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'filename' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip|max:51200',
+        ]);
+        $mode = $request->filled('main_menu_id') ? 'main' : 'sub';
+        $id = $request->input($mode.'_menu_id');
+        $detail = $request->filled('detail_menu_id')
+            ? detail_menu::where($mode.'_menu_id', $id)->findOrFail($request->detail_menu_id)
+            : new detail_menu;
+        $detail->{$detail->exists ? 'member_id_update' : 'member_id_create'} = session('user.member_id');
+        $detail->title = $request->title;
+        $detail->detail = $request->input('detail', '');
+        $detail->link = $request->link;
+        $detail->{$mode.'_menu_id'} = $id;
+        if ($request->filled('number_show')) {
+            $detail->number_show = $request->number_show;
+        }
+        foreach (['start_date', 'end_date'] as $field) {
+            if ($request->has($field)) {
+                $detail->$field = $this->contentDate($request->input($field), $field);
             }
-            if ($request->hasFile('filename')) {
-                Storage::disk('public')->delete('file/' . $detail_menu->file);
-            }
-            $detail_menu->member_id_update = $request->member_id;
-        } else {
-            $detail_menu = new Detail_menu();
-            $detail_menu->member_id_create = $request->member_id;
         }
-
-        $detail_menu->title = $request->title;
-        $detail_menu->detail = $request->detail;
-
-        if (!empty($request->filename)) {
-            $new_filename = uniqid() . '.' . $request->filename->extension();
-            $request->filename->storeAs('file', $new_filename, 'public');
-            $detail_menu->file = $new_filename;
-        }
-        if (!empty($request->image_name)) {
-            $new_image_name = uniqid() . '.' . $request->image_name->extension();
-            $request->image_name->storeAs('content', $new_image_name, 'public');
-            $detail_menu->thumbnail = $new_image_name;
-
-        }
-        if (!empty($request->number_show)) {
-            $detail_menu->number_show = $request->number_show;
-
-        }
-
-        $detail_menu->link = $request->link;
-        if (!empty($request->main_menu_id)) {
-            $detail_menu->main_menu_id = $request->main_menu_id;
-            $id = $request->main_menu_id;
-            $mode = 'main';
-
-        }
-        if (!empty($request->sub_menu_id)) {
-            $detail_menu->sub_menu_id = $request->sub_menu_id;
-            $id = $request->sub_menu_id;
-            $mode = 'sub';
-
-        }
-        $detail_menu->start_date = $this->set_format_date($request->start_date);
-        $detail_menu->end_date = $this->set_format_date($request->end_date);
-//dd($request);
-        $detail_menu->save();
+        $this->saveWithUploads($detail, $request, [
+            'image_name' => ['thumbnail', 'content'], 'filename' => ['file', 'file'],
+        ]);
 
         return redirect()->route('content.index', ['id' => $id, 'mode' => $mode]);
     }
 
+    protected function contentDate($value, string $field): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts)) {
+            [, $year, $month, $day] = $parts;
+        } elseif (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $value, $parts)) {
+            [, $month, $day, $year] = $parts;
+        } else {
+            throw ValidationException::withMessages([$field => 'Invalid date.']);
+        }
+        $year = (int) $year > 2500 ? (int) $year - 543 : (int) $year;
+        if (! checkdate((int) $month, (int) $day, $year)) {
+            throw ValidationException::withMessages([$field => 'Invalid date.']);
+        }
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
+    }
+
     public function edit_detail_menu($id1 = '', $id2 = '', $mode = '')
     {
-        $menu = array();
-        if ($mode == 'main') {
-            $menu = Main_menu::find($id2);
-            $data_detail_menu = Detail_menu::where('id', $id1)->get();
-            $a = 'main';
-        } elseif ($mode == 'sub') {
-            $menu = Sub_menu::find($id2);
-            $data_detail_menu = Detail_menu::where('id', $id1)->get();
-            $a = 'sub';
-
+        // Existing URLs use detail/menu/mode; newer forms pass menu/mode/detail.
+        if (in_array($id2, ['main', 'sub'], true)) {
+            [$id1, $id2, $mode] = [$mode, $id1, $id2];
         }
-        $data = $this->showMenu();
-        $data['menu'] = $menu;
-        $data['data_detail_menu'] = $data_detail_menu;
-        $data['mode'] = $a;
+        $menu = $this->contentMenu($id2, $mode);
+        $detail = detail_menu::where($mode.'_menu_id', $id2)->findOrFail($id1);
 
-        // return dd($data);
-        return view('admin.index_edit', $data);
+        return view('backend.content.page', array_merge($this->showMenuv1(), [
+            'menu' => $menu, 'mode' => $mode, 'data_detail_menu' => $detail,
+            'data_detail_menu_all' => collect(),
+        ]));
     }
 
     public function delete_detail_menu($id = '')
     {
-        $detail = Detail_menu::where('id', $id)->first();
-        if (!empty($detail->main_menu_id)) {
-            $detail_id = $detail->main_menu_id;
-            $mode = 'main';
-        }
-        if (!empty($detail->sub_menu_id)) {
-            $detail_id = $detail->sub_menu_id;
-            $mode = 'sub';
-        }
+        $detail = detail_menu::findOrFail($id);
+        $mode = $detail->sub_menu_id ? 'sub' : 'main';
+        $menuId = $detail->{$mode.'_menu_id'};
+        $files = array_filter([
+            $detail->thumbnail ? 'content/'.$detail->thumbnail : null,
+            $detail->file ? 'file/'.$detail->file : null,
+        ]);
+        $detail->delete();
+        Storage::disk('public')->delete($files);
 
-        Storage::disk('public')->delete('content/' . $detail->thumbnail);
-        $detail_menu = Detail_menu::find($id)->delete();
-
-        return redirect()->route('content.index', ['id' => $detail_id, 'mode' => $mode]);
+        return redirect()->route('content.index', ['id' => $menuId, 'mode' => $mode]);
     }
 
     public function setting_index(Request $request)
     {
-        $banner = Banner::where('place', 'right')->orderBy('ordinal', 'ASC')->get();
-        $data = $this->showMenu();
-        $data['data_banner'] = $banner;
-        // dd($data);
-        return view('admin.setting_index', $data);
+        return view('backend.banner.setting_index_right', array_merge($this->showMenuv1(), [
+            'data_banner' => banner::where('place', 'right')->orderBy('ordinal')->get(),
+        ]));
     }
 
     public function set_index_insert(Request $request)
     {
-        // dd($request->all());
-        if ($request->place == 'right') {
-            foreach ($request->name as $key => $row) {
-                if (!empty($request->id[$key])) {
-                    $banner = Banner::where('id', $request->id[$key])->first();
-                    if ($request->hasFile('file.' . $key)) {
-                        Storage::disk('public')->delete('index/' . $banner->file);
-                    }
-                } else {
-                    $banner = new Banner();
-                }
-                $banner->name = $request->name[$key];
-                if ($request->hasFile('file.' . $key)) {
-                    $new_image_name = uniqid() . '.' . $request->file[$key]->extension();
-
-                    $request->file[$key]->storeAs('index', $new_image_name, 'public');
-                    $banner->file = $new_image_name;
-                }
-                // $banner->file = $request->file[$key];
-                $banner->ordinal = $request->ordinal[$key];
-                $banner->link = $request->link[$key];
-                $banner->status_show = (isset($request->status_show[$key])) ? $request->status_show[$key] : 0;
-                $banner->place = $request->place;
-                $banner->save();
+        $request->validate(['place' => 'required|in:right,top,popup']);
+        if ($request->place === 'right') {
+            $request->validate([
+                'name' => 'required|array', 'name.*' => 'nullable|string|max:250',
+                'id' => 'nullable|array', 'id.*' => 'nullable|integer|exists:banners,id',
+                'ordinal' => 'required|array', 'ordinal.*' => 'required|integer|min:0',
+                'link' => 'nullable|array', 'link.*' => 'nullable|string|max:250',
+                'status_show' => 'nullable|array', 'status_show.*' => 'boolean',
+                'file' => 'nullable|array', 'file.*' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            ]);
+            foreach ($request->name as $key => $name) {
+                $id = $request->input("id.$key");
+                $item = $id ? banner::where('place', 'right')->findOrFail($id) : new banner;
+                $item->name = $name;
+                $item->ordinal = $request->input("ordinal.$key", $key + 1);
+                $item->link = $request->input("link.$key", $item->link);
+                $item->status_show = $request->input("status_show.$key", 0);
+                $item->place = 'right';
+                $this->saveWithUploads($item, $request, ["file.$key" => ['file', 'index']]);
             }
+
             return redirect()->route('setting.index');
-
-        } elseif ($request->place == 'top') {
-            if (!empty($request->id)) {
-                $banner = Banner::where('id', $request->id)->first();
-                if ($request->hasFile('file')) {
-                    Storage::disk('public')->delete('index/' . $banner->file);
-                }
-            } else {
-                $banner = new Banner();
-            }
-
-            $banner->name = $request->name;
-            if ($request->hasFile('file')) {
-                $new_image_name = uniqid() . '.' . $request->file->extension();
-                $request->file->storeAs('index', $new_image_name, 'public');
-                $banner->file = $new_image_name;
-            }
-
-            $banner->ordinal = $request->ordinal;
-            $banner->status_show = $request->status_show;
-            $banner->place = $request->place;
-            $banner->link = $request->link;
-            $banner->save();
-            return redirect()->route('setting.index_top');
         }
+        $request->validate([
+            'id' => 'nullable|integer|exists:banners,id',
+            'name' => 'nullable|string|max:250', 'link' => 'nullable|string|max:250',
+            'ordinal' => 'required|integer|min:0', 'status_show' => 'nullable|boolean',
+            'file' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'date_start' => 'nullable|date_format:Y-m-d',
+            'date_end' => 'nullable|date_format:Y-m-d|after_or_equal:date_start',
+        ]);
+        $item = $request->filled('id') ? banner::where('place', $request->place)->findOrFail($request->id) : new banner;
+        $item->name = $request->name;
+        $item->link = $request->link;
+        $item->ordinal = $request->ordinal;
+        $item->status_show = $request->input('status_show', 0);
+        $item->place = $request->place;
+        $item->date_start = $request->input('date_start', $item->date_start);
+        $item->date_end = $request->input('date_end', $item->date_end);
+        $this->saveWithUploads($item, $request, ['file' => ['file', 'index']]);
+
+        return redirect()->route('setting_index.index', $item->place);
     }
 
-    public function setting_index_top(Request $request)
+    public function setting_index_top($place = 'top')
     {
-        $banner = Banner::where('place', 'top')->orderBy('ordinal', 'ASC')->get();
-        $data = $this->showMenu();
-        $data['data_bannertop'] = $banner;
-        return view('admin.setting_index_top', $data);
+        abort_unless(in_array($place, ['top', 'popup'], true), 404);
+
+        return view('backend.banner.setting_index_'.$place, array_merge($this->showMenuv1(), [
+            'data_bannertop' => banner::where('place', $place)->orderBy('ordinal')->get(),
+            'title_menu' => $place === 'top' ? 'banner ด้านบน' : 'popup หน้าแรก',
+        ]));
     }
 
-    public function update_index_top($id = '')
+    public function update_index_top($id = '', $place = 'top')
     {
-        $banner1 = Banner::where('place', 'top')->orderBy('ordinal', 'ASC')->get();
-        $banner = Banner::where('id', $id)->get();
-        $data = $this->showMenu();
-        $data['data_bannertop'] = $banner1;
-        $data['data_banner'] = $banner;
-        return view('admin.setting_index_top', $data);
+        $item = banner::where('place', $place)->findOrFail($id);
+        $view = $this->setting_index_top($place);
+
+        return $view->with('data_banner', collect([$item]));
     }
 
-    public function delete_index_top($id = '')
+    public function delete_index_top($id = '', $place = 'top')
     {
-        $banner = Banner::where('id', $id)->first();
-        Storage::disk('public')->delete('index/' . $banner->file);
-        $banner_data = Banner::find($id)->delete();
+        abort_unless(in_array($place, ['top', 'popup'], true), 404);
+        $item = banner::where('place', $place)->findOrFail($id);
+        $file = $item->file;
+        $item->delete();
+        if ($file) {
+            Storage::disk('public')->delete('index/'.$file);
+        }
 
-        return redirect()->route('setting.index_top');
+        return redirect()->route('setting_index.index', $place);
     }
 
+    public function toggle(Request $request)
+    {
+        $request->validate(['id' => 'required|integer|exists:banners,id']);
+        $item = banner::findOrFail($request->id);
+        $item->status_show = ! $item->status_show;
+        $item->save();
+
+        return response()->json(['success' => true, 'status_show' => (bool) $item->status_show]);
+    }
+
+    protected function saveWithUploads($model, Request $request, array $uploads): void
+    {
+        $newFiles = [];
+        $oldFiles = [];
+        try {
+            foreach ($uploads as $input => [$column, $directory]) {
+                if (! $request->hasFile($input)) {
+                    continue;
+                }
+                $path = $request->file($input)->store($directory, 'public');
+                if (! $path) {
+                    throw new \RuntimeException('Unable to save uploaded file.');
+                }
+                $newFiles[] = $path;
+                if ($model->$column) {
+                    $oldFiles[] = $directory.'/'.$model->$column;
+                }
+                $model->$column = basename($path);
+            }
+            $model->save();
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($newFiles);
+            throw $exception;
+        }
+        Storage::disk('public')->delete($oldFiles);
+    }
 }

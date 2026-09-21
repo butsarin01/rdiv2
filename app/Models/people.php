@@ -11,11 +11,11 @@ class people extends Model
     protected $table = 'people';
     public function position(){
     	// return $this->belongsTo('Position');
-    	return Position::Where('id',$this->position_id)->first()->name;
+        return position::find($this->position_id)?->name ?? '';
     }
     public function prefix(){
     	// return $this->belongsTo('Position');
-    	return Prefix::Where('id',$this->prefix_id)->first()->name;
+        return prefix::find($this->prefix_id)?->name ?? '';
     }
 
      public function show_image()

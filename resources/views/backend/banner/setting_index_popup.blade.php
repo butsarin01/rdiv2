@@ -184,12 +184,12 @@
 
                                         <td class="text-center">
                                             <a class="btn btn-warning btn-sm"
-                                                href="{{ route('setting_index.update', ['popup', $row->id]) }}">
+                                                href="{{ route('setting_index.update', ['place' => 'popup', 'id' => $row->id]) }}">
                                                 แก้ไข
                                             </a>
 
                                             <a class="btn btn-danger btn-sm" onclick="return confirm('ลบแบนเนอร์นี้?')"
-                                                href="{{ route('setting_index.delete', ['popup', $row->id]) }}">
+                                                href="{{ route('setting_index.delete', ['place' => 'popup', 'id' => $row->id]) }}">
                                                 ลบ
                                             </a>
                                         </td>

@@ -24,7 +24,7 @@
         $id = $people_id->id;
         $image_name = $people_id->thumbnail;
         $position_id = $people_id->position_id;
-        $group_people_id = $people_id->group_people_id;
+        $group_people_id = $people_id->group_prople_id;
         $prefix_id = $people_id->prefix_id;
         $people_name = $people_id->name;
         $people_lastname = $people_id->lastname;
@@ -79,7 +79,7 @@
         @endif
 
         <div class="col-md-8 col-sm-8">
-            @if (empty($people_id))
+            @if (empty($people_id) && Route::has('emp_data_list') && Route::has('dynamic_data_staff.fetch'))
                 <div class="alert alert-lime fade show p-15  div-show-type_member">
                     <div class=" row ">
                         <label
@@ -139,7 +139,7 @@
                             @if (!empty($prefix[0]))
                                 @foreach ($prefix as $row)
                                     <option value="{{ $row->id }}"
-                                        {{ $prefix_id == $row->id ? 'selected' : '' }}>{{ $row->name_th }}</option>
+                                        {{ $prefix_id == $row->id ? 'selected' : '' }}>{{ $row->name_th ?? $row->name }}</option>
                                 @endforeach
                             @endif
                         </select>

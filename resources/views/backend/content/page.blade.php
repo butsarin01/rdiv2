@@ -84,7 +84,7 @@
                                                     @if (!empty($data->file))
                                                         <a href="{{ asset('storage/file/' . $data->file) }}"
                                                             target="_blank">
-                                                            {!! $data->setfile()['icon'] !!}
+                                                            <i class="far fa-file"></i>
                                                         </a>
                                                     @else
                                                         -
@@ -107,7 +107,7 @@
 
                                             <td>
                                                 <a class="btn btn-yellow"
-                                                    href="{{ route('content.edit', [$menu->id, $mode, $data->id]) }}"
+                                                    href="{{ route('content.edit', ['id1' => $data->id, 'id2' => $menu->id, 'mode' => $mode]) }}"
                                                     role="button">แก้ไข</a>
                                                 <a class="btn btn-red"
                                                     href="{{ route('content.delete_detail_menu', [$data->id]) }}"

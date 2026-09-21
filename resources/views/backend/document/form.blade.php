@@ -11,6 +11,8 @@
     $sub_title_document_id = '';
     $ordinal = '';
     $status_use = 1;
+    $type_quality_id = '';
+    $document_year = '';
     $multifilename = [];
     if (!empty($document)) {
         $id = $document->id;
@@ -27,10 +29,16 @@
 
         $ordinal = $document->ordinal;
         $status_use = $document->status_use;
+        $type_quality_id = $document->type_quality_id;
+        $document_year = $document->year;
 
         if (!empty($sub_document[0])) {
             $multifilename = $sub_document;
         }
+    }
+
+    if (!empty($qualityMode) && empty($type_quality_id)) {
+        $type_quality_id = $selected_quality_id ?? '';
     }
 
 @endphp
@@ -61,6 +69,39 @@
             </center>
         </div>
         <div class="col-md-8 col-sm-8">
+            @if (!empty($qualityMode))
+                <input type="hidden" name="select_value_type_quality" value="{{ $type_quality_id }}">
+                <input type="hidden" name="select_value_year" value="{{ $document_year }}">
+                <input type="hidden" name="select_value_type" value="{{ $type_document_id }}">
+                <div class="form-group row mb-1">
+                    <label class="col-form-label col-md-2">รูปแบบประกันคุณภาพ:</label>
+                    <div class="col-md-6">
+                        <select class="form-select dynamic_year" id="type_quality_id" name="type_quality_id"
+                            data-dependent="year" required>
+                            <option value="">กรุณาเลือกรูปแบบประกันคุณภาพ</option>
+                            @foreach ($type_qualities as $quality)
+                                <option value="{{ $quality->id }}" @selected($type_quality_id == $quality->id)>
+                                    {{ $quality->name_th }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group row mb-1">
+                    <label class="col-form-label col-md-2">ปี:</label>
+                    <div class="col-md-6">
+                        <select class="form-select year_id dynamic_input_type" id="year" name="year"
+                            data-dependent="type_document_id" required>
+                            @foreach ($years as $year)
+                                <option value="{{ $year->year }}" @selected($document_year == $year->year)>
+                                    {{ $year->year }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            @endif
+
             <div class="form-group row mb-1">
                 <label class="col-md-2 col-sm-2 col-form-label" for="name">ชื่อเอกสาร :</label>
                 <div class="col-md-10 col-sm-10">
@@ -316,8 +357,8 @@
                                 {{ $data->name }}
                             </td>
                             <td align="center">
-                                <a href="{{ asset('storage/sub_document/' . $id . '/' . $data->file) }}" target="_blank">
-                                    {!! $data->setfile()['icon'] !!}
+                                <a href="{{ $data->file_url() }}" target="_blank">
+                                    <i class="far fa-file"></i>
                                     {{--                                <span class="fs-6" style="color :{{ $data->setfile()['color']}}"> --}}
                                     {{--                                    {{$data->file}} --}}
                                     {{--                                </span> --}}

@@ -1,3 +1,6 @@
+@php
+    $permission = (int) session('user.permission', session('user.permisstion', 0));
+@endphp
 <div id="sidebar" class="app-sidebar" data-bs-theme="dark">
     <div class="app-sidebar-content" data-scrollbar="true" data-height="100%">
         <div class="menu">
@@ -7,18 +10,19 @@
                     <div class="menu-profile-info">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1">
-                                {{--                                {{session()->get('user.ldap_username')}} <br> --}}
                                 {{ session()->get('user.full_name') }}
                             </div>
                         </div>
-                        <small>{{ session()->get('user.permission_name') }} </small>
+                        <small>{{ session('user.permission_name', session('user.permisstion_name')) }} </small>
                     </div>
                 </a>
             </div>
 
 
+            @include('backend.rdi_document.menu')
+
             @if (session()->has('main-menu.main_menu_all'))
-                @if (in_array(session()->get('user.permission'), [1, 2, 4, 5]))
+                @if (in_array($permission, [1, 2, 4, 5], true))
                     <div class="menu-header">Content Menu</div>
                     @foreach (session()->get('main-menu.main_menu_all') as $main)
                         @if ($main->status_setting == 1 && $main->join_database == null)
@@ -88,7 +92,7 @@
                 @endif
             @endif
 
-            {{--            @if (in_array(session()->get('user.permission'), [1, 2, 4, 5, 6])) --}}
+            {{--            @if (in_array($permission, [1, 2, 4, 5, 6])) --}}
             {{--                <div class="menu-header">Data Base</div> --}}
             {{--                <div class="menu-item"> --}}
             {{--                    <a href="{{route('base.form')}}" class="menu-link"> --}}
@@ -107,7 +111,7 @@
             {{--                    </a> --}}
             {{--                </div> --}}
             {{--            @endif --}}
-            @if (in_array(session()->get('user.permission'), [1, 2, 4, 5]))
+            @if (in_array($permission, [1, 2, 4, 5], true))
                 <div class="menu-header">Data Menu</div>
                 {{-- @if (!empty(env('NSRU_NEWSPAPER')))
                     <div class="menu-item">
@@ -131,20 +135,22 @@
                         </a>
                     </div>
                 @endif --}}
-                @if (count(session()->get('main-menu.mode_article')) > 0)
-                    @foreach (session()->get('main-menu.mode_article') as $mode_article)
-                        <div class="menu-item">
-                            <a href="{{ route('article.index', $mode_article->name_eng) }}" class="menu-link">
-                                <div class="menu-icon">
-                                    <i class="far fa-calendar"></i>
-                                </div>
-                                <div class="menu-text">{{ $mode_article->name }}</div>
-                            </a>
-                        </div>
+                @if (count(session()->get('main-menu.mode_article', [])) > 0)
+                    @foreach (session()->get('main-menu.mode_article', []) as $mode_article)
+                        @if (\Illuminate\Support\Facades\Route::has('article.index'))
+                            <div class="menu-item">
+                                <a href="{{ route('article.index', $mode_article->name_eng) }}" class="menu-link">
+                                    <div class="menu-icon">
+                                        <i class="far fa-calendar"></i>
+                                    </div>
+                                    <div class="menu-text">{{ $mode_article->name }}</div>
+                                </a>
+                            </div>
+                        @endif
                     @endforeach
                 @endif
-                @if (count(session()->get('main-menu.group')) > 0)
-                    @php $group  = session()->get('main-menu.group') @endphp
+                @if (count(session()->get('main-menu.group', [])) > 0)
+                    @php $group  = session()->get('main-menu.group', []) @endphp
                     <div class="menu-item has-sub">
                         <a href="javascript:;" class="menu-link">
                             <div class="menu-icon">
@@ -207,16 +213,18 @@
                     </a>
                     <div class="menu-submenu">
                         <div class="menu-item">
-                            <a href="{{ route('document.index', 'document') }}" class="menu-link">
+                            <a href="{{ route('document.mode', 'document') }}" class="menu-link">
                                 <div class="menu-text">จัดการเอกสาร</div>
                             </a>
                         </div>
-                        <div class="menu-item">
-                            <a href="{{ route('document.setting', 'document') }}" class="menu-link">
-                                {{--                            <a href="{{route('setting_document.index')}}" class="menu-link"> --}}
-                                <div class="menu-text">ตั้งค่า</div>
-                            </a>
-                        </div>
+                        @if (\Illuminate\Support\Facades\Route::has('document.setting'))
+                            <div class="menu-item">
+                                <a href="{{ route('document.setting', 'document') }}" class="menu-link">
+                                    {{--                            <a href="{{route('setting_document.index')}}" class="menu-link"> --}}
+                                    <div class="menu-text">ตั้งค่า</div>
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 </div>
                 <div class="menu-item has-sub">
@@ -229,13 +237,36 @@
                     </a>
                     <div class="menu-submenu">
                         <div class="menu-item">
-                            <a href="{{ route('document.index', 'course') }}" class="menu-link">
+                            <a href="{{ route('document.mode', 'course') }}" class="menu-link">
                                 <div class="menu-text">จัดการข้อมูล</div>
                             </a>
                         </div>
+                        @if (\Illuminate\Support\Facades\Route::has('document.setting'))
+                            <div class="menu-item">
+                                <a href="{{ route('document.setting', 'course') }}" class="menu-link">
+                                    {{--                            <a href="{{route('setting_document.index')}}" class="menu-link"> --}}
+                                    <div class="menu-text">ตั้งค่า</div>
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                <div class="menu-item has-sub">
+                    <a href="javascript:;" class="menu-link">
+                        <div class="menu-icon">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
+                        <div class="menu-text">ประกันคุณภาพ</div>
+                        <div class="menu-caret"></div>
+                    </a>
+                    <div class="menu-submenu">
                         <div class="menu-item">
-                            <a href="{{ route('document.setting', 'course') }}" class="menu-link">
-                                {{--                            <a href="{{route('setting_document.index')}}" class="menu-link"> --}}
+                            <a href="{{ route('quality.index') }}" class="menu-link">
+                                <div class="menu-text">จัดการประกันคุณภาพ</div>
+                            </a>
+                        </div>
+                        <div class="menu-item">
+                            <a href="{{ route('document.setting', 'qualities') }}" class="menu-link">
                                 <div class="menu-text">ตั้งค่า</div>
                             </a>
                         </div>
@@ -266,21 +297,23 @@
                 {{--                </div> --}}
                 <div class="menu-header">Office Menu</div>
                 <div class="menu-item">
-                    <a href="{{ route('setting_index.index', ['top']) }}" class="menu-link">
+                    <a href="{{ route('setting.index_top') }}" class="menu-link">
                         <div class="menu-icon">
                             <i class="far fa-image"></i>
                         </div>
                         <div class="menu-text">banner ด้านบน</div>
                     </a>
                 </div>
-                <div class="menu-item">
-                    <a href="{{ route('setting_index.index', ['popup']) }}" class="menu-link">
-                        <div class="menu-icon">
-                            <i class="far fa-image"></i>
-                        </div>
-                        <div class="menu-text">popup หน้าแรก</div>
-                    </a>
-                </div>
+                @if (\Illuminate\Support\Facades\Route::has('setting_index.index'))
+                    <div class="menu-item">
+                        <a href="{{ route('setting_index.index', ['popup']) }}" class="menu-link">
+                            <div class="menu-icon">
+                                <i class="far fa-image"></i>
+                            </div>
+                            <div class="menu-text">popup หน้าแรก</div>
+                        </a>
+                    </div>
+                @endif
                 <div class="menu-item">
                     <a href="{{ route('template.set') }}" class="menu-link">
                         <div class="menu-icon">
@@ -298,21 +331,23 @@
                 {{--                </a> --}}
                 {{--            </div> --}}
             @endif
-            @if (in_array(session()->get('user.permission'), [3, 4, 5]))
+            @if (in_array($permission, [3, 4, 5], true))
                 @php $array_menu_direct = [['id' => 5, 'name' => 'สายตรงผู้อำนวยการ']]; @endphp
                 @foreach ($array_menu_direct as $row)
-                    <div class="menu-item">
-                        <a href="{{ route('content.direct_show', ['name' => $row['name'], 'id' => $row['id']]) }}"
-                            class="menu-link">
-                            <div class="menu-icon">
-                                <i class="fas fa-volume-high"></i>
-                            </div>
-                            <div class="menu-text">{{ $row['name'] }}</div>
-                        </a>
-                    </div>
+                    @if (\Illuminate\Support\Facades\Route::has('content.direct_show'))
+                        <div class="menu-item">
+                            <a href="{{ route('content.direct_show', ['name' => $row['name'], 'id' => $row['id']]) }}"
+                                class="menu-link">
+                                <div class="menu-icon">
+                                    <i class="fas fa-volume-high"></i>
+                                </div>
+                                <div class="menu-text">{{ $row['name'] }}</div>
+                            </a>
+                        </div>
+                    @endif
                 @endforeach
             @endif
-            @if (in_array(session()->get('user.permission'), [2, 4, 5]))
+            @if (in_array($permission, [2, 4, 5], true))
                 <div class="menu-item">
                     <a href="{{ route('member.index') }}" class="menu-link">
                         <div class="menu-icon">
@@ -322,7 +357,7 @@
                     </a>
                 </div>
             @endif
-            @if (in_array(session()->get('user.permission'), [5]))
+            @if (in_array($permission, [5], true))
                 <div class="menu-header">Dev Menu</div>
                 <div class="menu-item has-sub">
                     <a href="javascript:;" class="menu-link">

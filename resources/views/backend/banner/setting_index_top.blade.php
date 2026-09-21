@@ -14,7 +14,7 @@
 
                     <form action="{{ route('setting_index.insert') }}" method="POST" enctype="multipart/form-data">
                         @csrf
-                        <input type="hidden" name="place" value="popup">
+                        <input type="hidden" name="place" value="top">
                         <input type="hidden" name="ordinal" value="{{ $ordinal }}">
                         <input type="hidden" name="id" value="{{ $banner->id ?? '' }}">
 
@@ -65,7 +65,7 @@
                                 </div> --}}
 
                                 {{-- สถานะ --}}
-                                {{-- <div class="row mb-3">
+                                <div class="row mb-3">
                                     <label class="col-md-2 col-form-label">สถานะ</label>
                                     <div class="col-md-10 text-start pt-2">
                                         <label class="me-3">
@@ -79,7 +79,7 @@
                                             ปิดใช้งาน
                                         </label>
                                     </div>
-                                </div> --}}
+                                </div>
 
                             </div>
                         </div>
@@ -121,12 +121,12 @@
                                         </td>
                                         <td class="text-center">
                                             <a class="btn btn-warning btn-sm"
-                                                href="{{ route('setting_index.update', ['top', $row->id]) }}">
+                                                href="{{ route('setting_index.update', ['place' => 'top', 'id' => $row->id]) }}">
                                                 แก้ไข
                                             </a>
 
                                             <a class="btn btn-danger btn-sm" onclick="return confirm('ลบแบนเนอร์นี้?')"
-                                                href="{{ route('setting_index.delete', ['top', $row->id]) }}">
+                                                href="{{ route('setting_index.delete', ['place' => 'top', 'id' => $row->id]) }}">
                                                 ลบ
                                             </a>
                                         </td>

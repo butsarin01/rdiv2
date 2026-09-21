@@ -10,10 +10,10 @@
                                 เพิ่ม
                             @else
                                 แก้ไข
-                            @endif เอกสาร
+                            @endif {{ !empty($qualityMode) ? 'ข้อมูลประกันคุณภาพ' : 'เอกสาร' }}
                         </h4>
                         <hr>
-                        @include('backend.document.form')
+                        @include(!empty($qualityMode) ? 'backend.quality.form' : 'backend.document.form')
                     </div>
                 </div>
             </div>
@@ -30,7 +30,7 @@
                                 enctype="multipart/form-data">
                                 @csrf
                                 <input class="form-control hide" type="text" id="sent_office_id" name="sent_office_id"
-                                    placeholder="" data-parsley-required="true" />
+                                    placeholder="" data-parsley-required="true" value="{{ $editing_office->id ?? '' }}" />
 
                                 <div class="form-group row m-b-15">
                                     <label class="col-md-1 col-sm-1 col-form-label"
@@ -38,20 +38,20 @@
                     _name">ชื่อย่อ :</label>
                                     <div class="col-md-2 col-sm-2">
                                         <input class="form-control" type="text" id="name_sent_office" name="name"
-                                            placeholder="" />
+                                            placeholder="" value="{{ $editing_office->name ?? '' }}" />
                                     </div>
                                     <label class="col-md-1 col-sm-1 col-form-label" for="fullname">
                                         ชื่อเต็ม:</label>
                                     <div class="col-md-8 col-sm-8">
                                         <input class="form-control" type="text" id="fullname" name="fullname"
-                                            placeholder="" data-parsley-required="true" />
+                                            placeholder="" data-parsley-required="true" value="{{ $editing_office->fullname ?? '' }}" />
                                     </div>
                                 </div>
                                 <div class="form-group row m-b-15">
                                     <label class="col-md-1 col-sm-1 col-form-label" for="name">ที่อยู่ :</label>
                                     <div class="col-md-11 col-sm-11">
                                         <input class="form-control" type="text" id="address" name="address"
-                                            placeholder="" data-parsley-required="true" />
+                                            placeholder="" data-parsley-required="true" value="{{ $editing_office->address ?? '' }}" />
                                     </div>
                                 </div>
                                 <div class="col-md-6 col-sm-6  float-right ">
@@ -75,7 +75,7 @@
                                             <td>{{ $row->fullname }}</td>
                                             <td>{{ $row->address }}</td>
                                             <td>
-                                                <a class="btn btn-yellow" href="{{ route('document.edit', [$row->id]) }}"
+                                                <a class="btn btn-yellow" href="{{ route('sent_office.index', ['id' => $row->id]) }}"
                                                     role="button">แก้ไข</a>
                                                 <a class="btn btn-red" href="{{ route('sent_office.delete', [$row->id]) }}"
                                                     role="button">ลบ</a>
@@ -137,11 +137,11 @@
                                                 <?php echo 'ไม่มีไฟล์'; ?>
                                             @endif
                                         </td>
-                                        <td>{{ $row->type_document()->name }}</td>
+                                        <td>{{ $row->type_document() }}</td>
                                         <td>
                                             <!-- <a class="btn btn-blue" href="{{ route('sub_document.show', [$row->id]) }}" role="button">เพิ่มเอกสารย่อย</a> -->
                                             <a class="btn btn-yellow"
-                                                href="{{ route('document.edit', ['document', $row->id]) }}"
+                                                href="{{ route('document.edit', [$row->id]) }}"
                                                 role="button">แก้ไข</a>
                                             <a class="btn btn-red" href="{{ route('document.delete', [$row->id]) }}"
                                                 role="button">ลบ</a>
@@ -226,16 +226,16 @@
                                                     @endif
                                                 </td>
                                                 <td width="25%">
-                                                    <span class="fw-bold "> {{ $row->type_document()->name }}</span> <br>
+                                                    <span class="fw-bold "> {{ $row->type_document() }}</span> <br>
                                                     <span>{{ $row->category_document() }}</span>
                                                 </td>
                                                 <td width="10%" class="text-center">
                                                     <!-- <a class="btn btn-blue" href="{{ route('sub_document.show', [$row->id]) }}" role="button">เพิ่มเอกสารย่อย</a> -->
                                                     <a class="btn btn-yellow"
-                                                        href="{{ route('document.edit', ['document', $row->id]) }}"
+                                                        href="{{ route(!empty($qualityMode) ? 'quality.edit' : 'document.edit', [$row->id]) }}"
                                                         role="button">แก้ไข</a>
                                                     <a class="btn btn-red"
-                                                        href="{{ route('document.delete', ['document', $row->id]) }}"
+                                                        href="{{ route('document.delete', [$row->id]) }}"
                                                         role="button">ลบ</a>
                                                 </td>
                                             </tr>
@@ -251,6 +251,11 @@
     </div>
 @endsection
 @section('script_content')
+    @if (!empty($editing_office))
+        <script>
+            $(function () { new bootstrap.Modal(document.getElementById('modal-dialog')).show(); });
+        </script>
+    @endif
     <script type="text/javascript">
         $.ajaxSetup({
             beforeSend: function(xhr, type) {
@@ -266,11 +271,24 @@
         });
 
         var select_value_type = $("input[name=select_value_type]").val();
+        var select_value_type_quality = $("input[name=select_value_type_quality]").val();
+        var select_value_year = $("input[name=select_value_year]").val();
         var select_value_category = $("input[name=select_value_category]").val();
         var select_value_title = $("input[name=select_value_title]").val();
         var select_value_subtitle = $("input[name=select_value_subtitle]").val();
         console.log(select_value_type + select_value_category + select_value_title + select_value_subtitle);
         $(document).ready(function() {
+            @if (!empty($qualityMode))
+            fetch_year(select_value_type_quality, select_value_year, function() {
+                fetch_type(select_value_type, function() {
+                    fetch_category(select_value_category, function() {
+                        fetch_title(select_value_title, function() {
+                            fetch_sub_title(select_value_subtitle);
+                        });
+                    });
+                });
+            });
+            @else
             fetch_type(select_value_type, function() {
                 fetch_category(select_value_category, function() {
                     fetch_title(select_value_title, function() {
@@ -278,8 +296,21 @@
                     });
                 });
             });
+            @endif
 
             updateYearText();
+        });
+
+        $('.dynamic_year').change(function() {
+            fetch_year($(this).val(), '', function() {
+                fetch_type('', function() {
+                    fetch_category('', function() {
+                        fetch_title('', function() {
+                            fetch_sub_title('');
+                        });
+                    });
+                });
+            });
         });
 
 
@@ -359,6 +390,14 @@
             dynamic_select(select_year, value_year, dependent_year, url_year, name, data, callback);
         }
 
+        function fetch_year(qualityId, selectedYear = '', callback = null) {
+            if (!qualityId) {
+                $('#year').html('<option value="">กรุณาเลือกรูปแบบประกันคุณภาพ</option>');
+                return;
+            }
+            dynamic_select('', qualityId, 'year', "{{ route('dynamic_year.fetch') }}", 'type_quality_id', selectedYear, callback);
+        }
+
         function fetch_category(data = '', callback = null) {
             var select_type = $(".dynamic_input_category").text();
             var value_type = $(".dynamic_input_category option:selected").val();
@@ -399,7 +438,10 @@
                 method: "POST",
                 data: {
                     select: select,
+                    source: name || (dependent === 'type_document_id' ? 'year' : ''),
+                    base: '{{ !empty($qualityMode) ? 'report' : 'document' }}',
                     value: value,
+                    type_quality_id: $('.dynamic_year').val() || '',
                     _token: _token,
                     dependent: dependent
                 },

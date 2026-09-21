@@ -59,6 +59,7 @@
     </div>
 @endsection
 @section('script_menu')
+    @if (Route::has('emp_data_list') && Route::has('dynamic_data_staff.fetch'))
     <script>
         $.ajaxSetup({
             headers: {
@@ -163,4 +164,5 @@
             });
         }
     </script>
+    @endif
 @endsection

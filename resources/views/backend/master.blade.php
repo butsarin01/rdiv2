@@ -11,10 +11,10 @@
 
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css?family=Sarabun&display=swap" rel="stylesheet">
-    {{--	<link href="{{asset('assets_b/css/default/default/app.css')}}" rel="stylesheet" /> --}}
+    {{-- <link href="{{asset('assets_b/css/default/app.css')}}" rel="stylesheet" /> --}}
 
-    <link href="{{ asset('assets_b/css/default/vendor.min.css') }}" rel="stylesheet" />
-    <link href="{{ asset('assets_b/css/default/default/app.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets_b/css/vendor.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets_b/css/default/app.min.css') }}" rel="stylesheet" />
 
     <link href="{{ asset('assets_b/plugins/summernote/dist/summernote-lite.css') }}" rel="stylesheet" />
 
@@ -33,7 +33,11 @@
 
     <link href="{{ asset('assets_b/plugins/abpetkov-powerange/dist/powerange.min.css') }}" rel="stylesheet" />
     <link href="{{ asset('assets_b/plugins/dropzone/dist/min/dropzone.min.css') }}" rel="stylesheet" />
-    <link href="{{ asset('bootstrap-datepicker-thai-thai/css/datepicker.css') }}" rel="stylesheet" media="screen">
+    @if (file_exists(public_path('bootstrap-datepicker-thai-thai/css/datepicker.css')))
+        <link href="{{ asset('bootstrap-datepicker-thai-thai/css/datepicker.css') }}" rel="stylesheet" media="screen">
+    @else
+        <link href="{{ asset('assets_b/plugins/bootstrap-datepicker/dist/css/bootstrap-datepicker3.min.css') }}" rel="stylesheet" media="screen">
+    @endif
     <style type="text/css">
         body {
             font-family: 'Sarabun', sans-serif;
@@ -76,7 +80,7 @@
             <div class="navbar-header">
                 <a href="{{ route('index') }}" class="navbar-brand ">
                     <img src="{{ asset('images/nsru_2.png') }}" class="me-1"><span
-                        class="fw-bold">NSRU</span>-Admin-Artculture
+                        class="fw-bold">NSRU</span>-Admin-rdi
                 </a>
                 <button type="button" class="navbar-mobile-toggler" data-toggle="app-sidebar-mobile">
                     <span class="icon-bar"></span>
@@ -113,8 +117,8 @@
         <a href="javascript:;" class="btn btn-icon btn-circle btn-success btn-scroll-to-top"
             data-toggle="scroll-to-top"><i class="fa fa-angle-up"></i></a>
     </div>
-    <script src="{{ asset('assets_b/js/default/vendor.min.js') }}"></script>
-    <script src="{{ asset('assets_b/js/default/app.min.js') }}"></script>
+    <script src="{{ asset('assets_b/js/vendor.min.js') }}"></script>
+    <script src="{{ asset('assets_b/js/app.min.js') }}"></script>
 
     <script src="{{ asset('assets_b/plugins/summernote/dist/summernote-lite.min.js') }}"></script>
 
@@ -125,9 +129,9 @@
     <script src="{{ asset('assets_b/plugins/datatables.net-responsive-bs5/js/responsive.bootstrap5.min.js') }}"></script>
     <script src="{{ asset('assets_b/plugins/datatables.net-keytable/js/dataTables.keyTable.min.js') }}"></script>
     <script src="{{ asset('assets_b/plugins/datatables.net-keytable-bs5/js/keyTable.bootstrap5.min.js') }}"></script>
-    <script src="{{ asset('assets_b/js/default/demo/table-manage-keytable.demo.js') }}"></script>
+    <script src="{{ asset('assets_b/js/demo/table-manage-keytable.demo.js') }}"></script>
     <script src="{{ asset('assets_b/plugins/@highlightjs/cdn-assets/highlight.min.js') }}"></script>
-    <script src="{{ asset('assets_b/js/default/demo/render.highlight.js') }}"></script>
+    <script src="{{ asset('assets_b/js/demo/render.highlight.js') }}"></script>
     <!-- ================== END PAGE LEVEL JS ================== -->
 
     <!-- ================== BEGIN PAGE LEVEL JS ================== -->
@@ -138,20 +142,23 @@
     <script src="{{ asset('assets_b/plugins/tag-it/js/tag-it.min.js') }}"></script>
     <script src="{{ asset('assets_b/plugins/select2/dist/js/select2.min.js') }}"></script>
     <script src="{{ asset('assets_b/plugins/clipboard/dist/clipboard.min.js') }}"></script>
-    {{-- <script src="{{asset('assets_b/js/default/demo/form-plugins.demo.js')}}"></script> --}}
+    {{-- <script src="{{asset('assets_b/js/demo/form-plugins.demo.js')}}"></script> --}}
 
     <script src="{{ asset('assets_b/plugins/abpetkov-powerange/dist/powerange.min.js') }}"></script>
-    <script src="{{ asset('assets_b/js/default/demo/form-slider-switcher.demo.js') }}"></script>
+    <script src="{{ asset('assets_b/js/demo/form-slider-switcher.demo.js') }}"></script>
 
     <script src="{{ asset('assets_b/plugins/dropzone/dist/min/dropzone.min.js') }}"></script>
-    <script src="{{ asset('assets_b/plugins/@highlightjs/cdn-assets/highlight.min.js') }}"></script>
-    <script src="{{ asset('assets_b/js/default/demo/render.highlight.js') }}"></script>
 
     <script src="{{ asset('assets_b/plugins/spectrum-colorpicker2/dist/spectrum.min.js') }}"></script>
 
+    @if (file_exists(public_path('bootstrap-datepicker-thai-thai/js/bootstrap-datepicker.js')))
     <script src="{{ asset('bootstrap-datepicker-thai-thai/js/bootstrap-datepicker.js') }}"></script>
     <script src="{{ asset('bootstrap-datepicker-thai-thai/js/bootstrap-datepicker-thai.js') }}"></script>
     <script src="{{ asset('bootstrap-datepicker-thai-thai/js/locales/bootstrap-datepicker.th.js') }}"></script>
+    @else
+    <script src="{{ asset('assets_b/plugins/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js') }}"></script>
+    <script src="{{ asset('assets_b/plugins/bootstrap-datepicker/dist/locales/bootstrap-datepicker.th.min.js') }}"></script>
+    @endif
 
     @yield('script_content')
     <script>

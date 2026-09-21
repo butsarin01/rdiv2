@@ -83,7 +83,7 @@
                 <div class="col-md-10 col-sm-10">
                     <input class="form-control" type="text" id="link" name="link" placeholder=""
                         data-parsley-required="true"
-                        @if (!empty($data->link)) value="{{ $link }}" @endif />
+                        value="{{ $link }}" />
                 </div>
             @endif
             @if (!empty($menu->status_use_file))
